@@ -7,21 +7,31 @@ interface ToastContextType {
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [toast, setToast] = useState<{ message: string; visible: boolean }>({
+  const [toast, setToast] = useState<{ id: number; message: string; visible: boolean }>({
+    id: 0,
     message: "",
     visible: false,
   });
 
   const showToast = (message: string) => {
-    setToast({ message, visible: true });
-    setTimeout(() => setToast({ message: "", visible: false }), 2000); // auto hide
+    const newId = Date.now(); // 🔑 unique each call
+    setToast({ id: newId, message, visible: true });
+
+    setTimeout(() => {
+      setToast((prev) =>
+        prev.id === newId ? { ...prev, visible: false } : prev
+      );
+    }, 2000);
   };
 
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
       {toast.visible && (
-        <div className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50">
+        <div
+          key={toast.id} // 🔑 forces React to remount
+          className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50"
+        >
           {toast.message}
         </div>
       )}

@@ -8,7 +8,8 @@
     "desc": "Premium basmati rice for daily cooking.",
     "retailer": "Krishna General Store",
     "delivery": "30 mins delivery",
-    "offers": ["10% cashback on first order", "Free delivery above ₹500"]
+    "offers": ["10% cashback on first order", "Free delivery above ₹500"],
+    "gst": 0.05
   },
   {
     "id": 2,
@@ -19,7 +20,8 @@
     "desc": "Refined sugar with natural sweetness.",
     "retailer": "SweetMart",
     "delivery": "Same day delivery",
-    "offers": ["5% off on prepaid orders"]
+    "offers": ["5% off on prepaid orders"],
+    "gst": 0.05
   },
   {
     "id": 3,
@@ -30,7 +32,8 @@
     "desc": "Light refined sunflower oil for healthy cooking.",
     "retailer": "Grocery Hub",
     "delivery": "45 mins delivery",
-    "offers": ["₹20 off per litre", "Free delivery above ₹400"]
+    "offers": ["₹20 off per litre", "Free delivery above ₹400"],
+    "gst": 0.12
   },
   {
     "id": 4,
@@ -41,7 +44,8 @@
     "desc": "Delicious instant noodles loved by all ages.",
     "retailer": "QuickMart",
     "delivery": "Express delivery available",
-    "offers": ["Flat ₹10 off", "Buy 2 get 1 free"]
+    "offers": ["Flat ₹10 off", "Buy 2 get 1 free"],
+    "gst": 0.18
   },
   {
     "id": 5,
@@ -52,7 +56,8 @@
     "desc": "Fresh toned milk from Amul dairy.",
     "retailer": "Dairy Fresh",
     "delivery": "Daily morning delivery",
-    "offers": ["Subscription discount available"]
+    "offers": ["Subscription discount available"],
+    "gst": 0.05
   },
   {
     "id": 6,
@@ -63,7 +68,8 @@
     "desc": "Farm fresh eggs, hygienically packed.",
     "retailer": "FarmHouse Store",
     "delivery": "Next day delivery",
-    "offers": ["₹15 off on first tray"]
+    "offers": ["₹15 off on first tray"],
+    "gst": 0.05
   },
   {
     "id": 7,
@@ -74,7 +80,8 @@
     "desc": "Unpolished toor dal packed with protein.",
     "retailer": "Healthy Choice",
     "delivery": "1 hour delivery",
-    "offers": ["5% off on minimum order ₹500"]
+    "offers": ["5% off on minimum order ₹500"],
+    "gst": 0.05
   },
   {
     "id": 8,
@@ -85,6 +92,7 @@
     "desc": "Finely ground besan for multiple recipes.",
     "retailer": "Shree Grocery",
     "delivery": "Fast delivery",
-    "offers": ["Save ₹5 per pack"]
+    "offers": ["Save ₹5 per pack"],
+    "gst": 0.05
   }
 ]

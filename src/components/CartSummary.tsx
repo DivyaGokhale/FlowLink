@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface CartItem {
   id: number;
@@ -12,8 +13,11 @@ const CartSummary: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
+  const navigate = useNavigate();
 
-  // 🔹 Load from localStorage once
+  const selectedAddress = JSON.parse(localStorage.getItem("selectedAddress") || "{}");
+  const distance = selectedAddress?.distance || 3.0;
+
   useEffect(() => {
     const stored = localStorage.getItem("cart");
     if (stored) {
@@ -21,46 +25,41 @@ const CartSummary: React.FC = () => {
     }
   }, []);
 
-  // 🔹 Keep localStorage updated whenever cart changes
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cartItems));
   }, [cartItems]);
 
-  const increaseQty = (id: number) => {
-    setCartItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+  // ✅ Unified quantity updater
+  const updateQuantity = (id: number, change: number) => {
+    const updatedCart = cartItems
+      .map((item) =>
+        item.id === id ? { ...item, quantity: item.quantity + change } : item
       )
-    );
-  };
+      .filter((item) => item.quantity > 0); // remove if 0
 
-  const decreaseQty = (id: number) => {
-    setCartItems((prev) =>
-      prev
-        .map((item) =>
-          item.id === id && item.quantity > 1
-            ? { ...item, quantity: item.quantity - 1 }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
+    setCartItems(updatedCart);
+    localStorage.setItem("cart", JSON.stringify(updatedCart));
   };
 
   const removeItem = (id: number) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== id));
+    const updatedCart = cartItems.filter((i) => i.id !== id);
+    setCartItems(updatedCart);
+    localStorage.setItem("cart", JSON.stringify(updatedCart));
   };
 
   const clearCart = () => {
     setCartItems([]);
+    localStorage.setItem("cart", "[]");
   };
 
-  // 🧮 Pricing logic
+  // 🧮 Pricing
   const subtotal = cartItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
   );
-  const delivery = cartItems.length > 0 ? 25 : 0;
-  const gst = subtotal > 0 ? Math.round(subtotal * 0.05) : 0; // 5% GST
+  const delivery = cartItems.length > 0 ? Math.round(distance * 10) : 0; // ₹10 per km
+  const gstRate = subtotal > 0 ? 0.05 : 0; // example fixed 5%
+  const gst = Math.round(subtotal * gstRate);
   const discountAmount = Math.round((subtotal * discount) / 100);
   const total = subtotal + delivery + gst - discountAmount;
 
@@ -80,6 +79,7 @@ const CartSummary: React.FC = () => {
         <p className="text-gray-500">Your cart is empty.</p>
       ) : (
         <>
+          {/* Cart items */}
           <div className="space-y-4 border-b pb-4">
             {cartItems.map((item) => (
               <div
@@ -101,14 +101,14 @@ const CartSummary: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => decreaseQty(item.id)}
+                    onClick={() => updateQuantity(item.id, -1)}
                     className="px-2 py-1 border rounded hover:bg-gray-100"
                   >
                     –
                   </button>
                   <span>{item.quantity}</span>
                   <button
-                    onClick={() => increaseQty(item.id)}
+                    onClick={() => updateQuantity(item.id, +1)}
                     className="px-2 py-1 border rounded hover:bg-gray-100"
                   >
                     +
@@ -154,11 +154,11 @@ const CartSummary: React.FC = () => {
               <span>₹{subtotal}</span>
             </div>
             <div className="flex justify-between">
-              <span>Delivery Fee (3.0 kms)</span>
+              <span>Delivery Fee ({distance} kms)</span>
               <span>₹{delivery}</span>
             </div>
             <div className="flex justify-between">
-              <span>GST & Other Charges</span>
+              <span>GST ({Math.round(gstRate * 100)}%)</span>
               <span>₹{gst}</span>
             </div>
             {discount > 0 && (
@@ -174,13 +174,17 @@ const CartSummary: React.FC = () => {
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 mt-6">
-            <button className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700">
+          <div className="flex justify-between gap-4 mt-6">
+            <button
+              onClick={() => navigate("/payment")}
+              className="bg-green-600 text-white flex-1 py-3 rounded-lg font-medium hover:bg-green-700"
+            >
               Proceed to Payment
             </button>
+
             <button
               onClick={clearCart}
-              className="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600"
+              className="bg-red-500 text-white flex-1 py-3 rounded-lg font-medium hover:bg-red-600"
             >
               Clear Cart
             </button>

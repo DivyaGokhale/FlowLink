@@ -4,6 +4,7 @@ import AddToCart from "./components/AddToCart";
 import Landingpage from "./pages/Landingpage";
 import {CartProvider} from "./components/CartContext"
 import {ToastProvider}  from "./components/ToastContext";
+import PaymentPage from "./components/PaymentPage";
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Landingpage />} />
         <Route path="/product/:id" element={<ProductDetails />} />
+        <Route path="/payment" element={<PaymentPage />} />
         <Route path="/addToCart" element={<AddToCart />} />  
       </Routes>
     </Router>

@@ -5,6 +5,7 @@ import Footer from "../components/Footer";
 import AddressSelector from "../components/AddressSelector";
 import CartSummary from "../components/CartSummary";
 import RelatedProducts from "../components/RelatedProducts";
+import BackButton from "../components/BackButton";
 
 interface Product {
   id: number;
@@ -46,10 +47,10 @@ function AddToCart() {
       <Header />
 
       <main className="flex-grow w-full max-w-7xl mx-auto p-4 md:p-6">
+        <BackButton />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Left side - Delivery Address */}
           <div className="lg:col-span-2">
-            <h2 className="text-xl font-semibold mb-4">Choose a delivery address</h2>
             <AddressSelector />
           </div>
 

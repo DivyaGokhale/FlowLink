@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { useToast } from "../components/ToastContext";
+import BackButton from "../components/BackButton";
 
 interface Product {
   id: number;
@@ -70,7 +71,7 @@ const ProductDetails: React.FC = () => {
   return (
     <>
       <Header />
-
+      <BackButton />
       <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Product Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
