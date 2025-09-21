@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useToast } from "../components/ToastContext"; // ✅ import toast
 
 interface Product {
   id: number;
@@ -7,11 +8,13 @@ interface Product {
   pack: string;
   price: number;
   image: string;
+  quantity?: number;
 }
 
 const ProductShowcase: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast(); // ✅ get toast function
 
   useEffect(() => {
     fetch("/products.json")
@@ -25,6 +28,21 @@ const ProductShowcase: React.FC = () => {
         setLoading(false);
       });
   }, []);
+
+  const addToCart = (product: Product) => {
+    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
+
+    const updatedCart = existingCart.some((item: Product) => item.id === product.id)
+      ? existingCart.map((item: Product) =>
+          item.id === product.id
+            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            : item
+        )
+      : [...existingCart, { ...product, quantity: 1 }];
+
+    localStorage.setItem("cart", JSON.stringify(updatedCart));
+    showToast(`✅ ${product.name} added to cart`);
+  };
 
   if (loading) {
     return <h2 style={{ textAlign: "center" }}>Loading products...</h2>;
@@ -106,6 +124,7 @@ const ProductShowcase: React.FC = () => {
               ₹{item.price}
             </div>
             <button
+              onClick={() => addToCart(item)}
               style={{
                 background: "#43b02a",
                 color: "#fff",

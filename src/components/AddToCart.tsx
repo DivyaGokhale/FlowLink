@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
@@ -19,36 +19,25 @@ function AddToCart() {
   const location = useLocation();
   const product = location.state?.product as Product | undefined;
 
-  const [cart, setCart] = useState<Product[]>([]);
-
-  // ✅ Load cart from localStorage on mount
-  useEffect(() => {
-    const storedCart = localStorage.getItem("cart");
-    if (storedCart) {
-      setCart(JSON.parse(storedCart));
-    }
-  }, []);
-
-  // ✅ Keep cart synced with localStorage
-  useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(cart));
-  }, [cart]);
-
-  // ✅ Add new product if passed from ProductDetails
+  // ✅ Add product to localStorage cart if passed from ProductDetails
   useEffect(() => {
     if (product) {
-      setCart((prevCart) => {
-        const existing = prevCart.find((item) => item.id === product.id);
-        if (existing) {
-          return prevCart.map((item) =>
-            item.id === product.id
-              ? { ...item, quantity: item.quantity + product.quantity }
-              : item
-          );
-        } else {
-          return [...prevCart, product];
-        }
-      });
+      const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+
+      const existing = storedCart.find((item: Product) => item.id === product.id);
+
+      let updatedCart;
+      if (existing) {
+        updatedCart = storedCart.map((item: Product) =>
+          item.id === product.id
+            ? { ...item, quantity: item.quantity + product.quantity }
+            : item
+        );
+      } else {
+        updatedCart = [...storedCart, product];
+      }
+
+      localStorage.setItem("cart", JSON.stringify(updatedCart));
     }
   }, [product]);
 
@@ -66,7 +55,7 @@ function AddToCart() {
 
           {/* Right side - Cart Summary */}
           <div className="lg:col-span-1">
-            <CartSummary cartItems={cart} setCartItems={setCart} />
+            <CartSummary />
           </div>
         </div>
       </main>

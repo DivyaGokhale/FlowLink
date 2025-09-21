@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 interface CartItem {
   id: number;
@@ -8,33 +8,46 @@ interface CartItem {
   quantity: number;
 }
 
-interface CartSummaryProps {
-  cartItems: CartItem[];
-  setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
-}
-
-const CartSummary: React.FC<CartSummaryProps> = ({ cartItems, setCartItems }) => {
+const CartSummary: React.FC = () => {
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
 
+  // 🔹 Load from localStorage once
+  useEffect(() => {
+    const stored = localStorage.getItem("cart");
+    if (stored) {
+      setCartItems(JSON.parse(stored));
+    }
+  }, []);
+
+  // 🔹 Keep localStorage updated whenever cart changes
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cartItems));
+  }, [cartItems]);
+
   const increaseQty = (id: number) => {
-    const updated = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+    setCartItems((prev) =>
+      prev.map((item) =>
+        item.id === id ? { ...item, quantity: item.quantity + 1 } : item
+      )
     );
-    setCartItems(updated);
   };
 
   const decreaseQty = (id: number) => {
-    let updated = cartItems.map((item) =>
-      item.id === id ? { ...item, quantity: item.quantity - 1 } : item
+    setCartItems((prev) =>
+      prev
+        .map((item) =>
+          item.id === id && item.quantity > 1
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
     );
-    updated = updated.filter((item) => item.quantity > 0);
-    setCartItems(updated);
   };
 
   const removeItem = (id: number) => {
-    const updated = cartItems.filter((i) => i.id !== id);
-    setCartItems(updated);
+    setCartItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   const clearCart = () => {
@@ -42,7 +55,10 @@ const CartSummary: React.FC<CartSummaryProps> = ({ cartItems, setCartItems }) =>
   };
 
   // 🧮 Pricing logic
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
   const delivery = cartItems.length > 0 ? 25 : 0;
   const gst = subtotal > 0 ? Math.round(subtotal * 0.05) : 0; // 5% GST
   const discountAmount = Math.round((subtotal * discount) / 100);
@@ -66,7 +82,10 @@ const CartSummary: React.FC<CartSummaryProps> = ({ cartItems, setCartItems }) =>
         <>
           <div className="space-y-4 border-b pb-4">
             {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-4">
+              <div
+                key={item.id}
+                className="flex items-center justify-between gap-4"
+              >
                 <img
                   src={item.image}
                   alt={item.name}
@@ -108,7 +127,9 @@ const CartSummary: React.FC<CartSummaryProps> = ({ cartItems, setCartItems }) =>
 
           {/* Coupon */}
           <div className="mt-4">
-            <label className="block text-sm font-medium mb-1">Apply Coupon</label>
+            <label className="block text-sm font-medium mb-1">
+              Apply Coupon
+            </label>
             <div className="flex gap-2">
               <input
                 type="text"
