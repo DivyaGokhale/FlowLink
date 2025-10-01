@@ -6,56 +6,72 @@ interface Category {
   image: string;
 }
 
+// Generate a stable inline SVG data URL with an emoji for reliable rendering
+const emojiDataUrl = (emoji: string) => {
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+  <svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
+    <defs>
+      <linearGradient id='g' x1='0' x2='1' y1='0' y2='1'>
+        <stop offset='0%' stop-color='#f8fafc'/>
+        <stop offset='100%' stop-color='#eef2f7'/>
+      </linearGradient>
+    </defs>
+    <rect width='100%' height='100%' rx='100' ry='100' fill='url(#g)'/>
+    <text x='50%' y='56%' dominant-baseline='middle' text-anchor='middle' font-size='96'>${emoji}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+};
+
 const categories: Category[] = [
   {
     id: 1,
     name: "Dairy, Bread & Eggs",
-    image: "/src/assets/categories/dairy.png",
+    image: "/categories/dairy-bread-eggs.png",
   },
   {
     id: 2,
     name: "Cold Drinks & Juices",
-    image: "/src/assets/categories/cold_drinks.png",
+    image: "/categories/cold-drinks-juices.png",
   },
   {
     id: 3,
     name: "Rice, Atta & Grains",
-    image: "/src/assets/categories/rice_atta_grains.png",
+    image: "/categories/rice-atta-grains.png",
   },
   {
     id: 4,
     name: "Sugar, Jaggery & Salt",
-    image: "/src/assets/categories/sugar_jaggery_salt.png",
+    image: "/categories/sugar-jaggery-salt.png",
   },
   {
     id: 5,
     name: "Masale & Spices",
-    image: "/src/assets/categories/masale_spices.png",
+    image: "/categories/masale-spices.png",
   },
   {
     id: 6,
     name: "Biscuits & Snacks",
-    image: "/src/assets/categories/biscuits_snacks.png",
+    image: "/categories/dairy-bread-eggs.png",
   },
   {
     id: 7,
     name: "Tea, Coffee & Beverages",
-    image: "/src/assets/categories/beverages.png",
+    image: "/categories/cold-drinks-juices.png",
   },
   {
     id: 8,
     name: "Oil & Ghee",
-    image: "/src/assets/categories/oil_ghee.png",
+    image: "/categories/rice-atta-grains.png",
   },
   {
     id: 9,
     name: "Personal Care",
-    image: "/src/assets/categories/personal_Care.png",
+    image: "/categories/sugar-jaggery-salt.png",
   },
   {
     id: 10,
     name: "Household Cleaning",
-    image: "/src/assets/categories/household.png",
+    image: "/categories/masale-spices.png",
   },
 ];
 
@@ -63,7 +79,7 @@ const CategorySection: React.FC = () => {
   return (
     <section className="w-full max-w-7xl mx-auto px-6 py-10">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Shop by Category
+        Explore by Categories
       </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
         {categories.map((cat) => (
@@ -75,7 +91,14 @@ const CategorySection: React.FC = () => {
               <img
                 src={cat.image}
                 alt={cat.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
+                loading="lazy"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  const fallback = emojiDataUrl("📦");
+                  if (target.src !== fallback) target.src = fallback;
+                }}
+                className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-full bg-white p-1"
               />
             </div>
             <p className="mt-3 text-sm font-medium text-gray-700 text-center">
