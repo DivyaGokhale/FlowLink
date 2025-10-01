@@ -3,11 +3,11 @@ import { Link } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
 
 interface Product {
-  id: number;
+  _id: string;
   name: string;
-  pack: string;
+  pack?: string;
   price: number;
-  image: string;
+  image?: string;
   desc?: string;
   quantity?: number;
 }
@@ -18,10 +18,27 @@ const FeaturedProducts: React.FC = () => {
   const { showToast } = useToast(); // ✅ get toast function
 
   useEffect(() => {
-    fetch("/products.json")
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const USER_ID = import.meta.env.VITE_ADMIN_USER_ID;
+    if (!USER_ID) {
+      console.warn("VITE_ADMIN_USER_ID is not set. API may return 401.");
+    }
+    fetch(`${API_BASE}/products`, {
+      headers: {
+        "x-user-id": USER_ID || "",
+      },
+    })
       .then((res) => res.json())
-      .then((data: Product[]) => {
-        setProducts(data);
+      .then((data: any[]) => {
+        const mapped: Product[] = (data || []).map((d) => ({
+          _id: d._id,
+          name: d.title || d.name || "Untitled",
+          pack: d.pack,
+          price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
+          image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
+          desc: d.description,
+        }));
+        setProducts(mapped);
         setLoading(false);
       })
       .catch((err) => {
@@ -33,9 +50,9 @@ const FeaturedProducts: React.FC = () => {
   const addToCart = (product: Product) => {
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
 
-    const updatedCart = existingCart.some((item: Product) => item.id === product.id)
+    const updatedCart = existingCart.some((item: Product) => item._id === product._id)
       ? existingCart.map((item: Product) =>
-          item.id === product.id
+          item._id === product._id
             ? { ...item, quantity: (item.quantity || 1) + 1 }
             : item
         )
@@ -57,14 +74,18 @@ const FeaturedProducts: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {products.map((product) => (
           <div
-            key={product.id}
+            key={product._id}
             className="bg-white border rounded-xl shadow-sm p-4 flex flex-col items-center hover:shadow-md transition"
           >
             {/* Product Image */}
-            <Link to={`/product/${product.id}`} className="w-32 h-32 flex items-center justify-center">
+            <Link to={`/product/${product._id}`} className="w-32 h-32 flex items-center justify-center">
               <img
                 src={product.image}
                 alt={product.name}
+                width={112}
+                height={112}
+                loading="lazy"
+                decoding="async"
                 className="max-h-28 object-contain"
               />
             </Link>

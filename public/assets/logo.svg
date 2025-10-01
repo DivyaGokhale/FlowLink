@@ -1,0 +1,12 @@
+<svg width="28" height="28" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g stroke="#2A2A2A" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">
+    <!-- top hex-like cube -->
+    <path d="M24 10 L40 10 L56 20 L40 30 L24 30 L8 20 Z" fill="none"/>
+    <!-- left lower cube side/top -->
+    <path d="M8 20 L8 44 L24 54 L24 30 Z" fill="none"/>
+    <!-- right lower cube side/top -->
+    <path d="M56 20 L56 44 L40 54 L40 30 Z" fill="none"/>
+    <!-- center connector -->
+    <path d="M24 30 L40 30 L40 54 L24 54 Z" fill="none"/>
+  </g>
+</svg>

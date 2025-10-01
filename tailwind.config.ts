@@ -68,6 +68,9 @@ export default {
         'card': 'var(--shadow-card)',
         'button': 'var(--shadow-button)',
       },
+      fontFamily: {
+        mate: ["Mate", "serif"],
+      },
       transitionTimingFunction: {
         'smooth': 'var(--transition-smooth)',
       },

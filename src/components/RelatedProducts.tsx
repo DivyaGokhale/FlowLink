@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 // Define the shape of a single product object
 interface Product {
-  id: number;
+  _id: string;
   name: string;
   pack: string;
   price: number;
@@ -25,8 +25,8 @@ const RelatedProducts = ({ products }: RelatedProductsProps) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
           {products.map((item) => (
             <Link
-              to={`/product/${item.id}`}
-              key={item.id}
+              to={`/product/${item._id}`}
+              key={item._id}
               className="block border rounded-lg shadow-sm p-4 hover:shadow-md transition relative text-left"
             >
               {/* Conditionally render an offer badge if available */}

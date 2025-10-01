@@ -8,7 +8,7 @@ import RelatedProducts from "../components/RelatedProducts";
 import BackButton from "../components/BackButton";
 
 interface Product {
-  id: number;
+  _id: string;
   name: string;
   pack: string;
   price: number;
@@ -25,12 +25,12 @@ function AddToCart() {
     if (product) {
       const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
 
-      const existing = storedCart.find((item: Product) => item.id === product.id);
+      const existing = storedCart.find((item: Product) => item._id === product._id);
 
       let updatedCart;
       if (existing) {
         updatedCart = storedCart.map((item: Product) =>
-          item.id === product.id
+          item._id === product._id
             ? { ...item, quantity: item.quantity + product.quantity }
             : item
         );

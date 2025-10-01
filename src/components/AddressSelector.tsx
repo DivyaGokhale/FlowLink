@@ -96,12 +96,12 @@ const AddressSelector: React.FC = () => {
   const [selectedAddressId, setSelectedAddressId] = useState<number>(1); // Default to 'Home'
 
   return (
-    <div className="bg-gray-50 min-h-screen flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl -mt-40">
-        <h2 className="text-3xl font-bold mb-8 text-gray-800">
+    <section className="w-full">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6">
+        <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">
           Choose a delivery address
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {addresses.map((addr) => (
             <AddressCard
               key={addr.id}
@@ -113,7 +113,7 @@ const AddressSelector: React.FC = () => {
           <AddNewAddressCard />
         </div>
       </div>
-    </div>
+    </section>
   );
 };
 

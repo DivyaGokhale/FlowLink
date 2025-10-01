@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface CartItem {
-  id: number;
+  _id: string;
   name: string;
   price: number;
   image: string;
@@ -30,10 +30,10 @@ const CartSummary: React.FC = () => {
   }, [cartItems]);
 
   // ✅ Unified quantity updater
-  const updateQuantity = (id: number, change: number) => {
+  const updateQuantity = (_id: string, change: number) => {
     const updatedCart = cartItems
       .map((item) =>
-        item.id === id ? { ...item, quantity: item.quantity + change } : item
+        item._id === _id ? { ...item, quantity: item.quantity + change } : item
       )
       .filter((item) => item.quantity > 0); // remove if 0
 
@@ -41,8 +41,8 @@ const CartSummary: React.FC = () => {
     localStorage.setItem("cart", JSON.stringify(updatedCart));
   };
 
-  const removeItem = (id: number) => {
-    const updatedCart = cartItems.filter((i) => i.id !== id);
+  const removeItem = (_id: string) => {
+    const updatedCart = cartItems.filter((i) => i._id !== _id);
     setCartItems(updatedCart);
     localStorage.setItem("cart", JSON.stringify(updatedCart));
   };
@@ -83,7 +83,7 @@ const CartSummary: React.FC = () => {
           <div className="space-y-4 border-b pb-4">
             {cartItems.map((item) => (
               <div
-                key={item.id}
+                key={item._id}
                 className="flex items-center justify-between gap-4"
               >
                 <img
@@ -101,14 +101,14 @@ const CartSummary: React.FC = () => {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => updateQuantity(item.id, -1)}
+                    onClick={() => updateQuantity(item._id, -1)}
                     className="px-2 py-1 border rounded hover:bg-gray-100"
                   >
                     –
                   </button>
                   <span>{item.quantity}</span>
                   <button
-                    onClick={() => updateQuantity(item.id, +1)}
+                    onClick={() => updateQuantity(item._id, +1)}
                     className="px-2 py-1 border rounded hover:bg-gray-100"
                   >
                     +
@@ -116,7 +116,7 @@ const CartSummary: React.FC = () => {
                 </div>
 
                 <button
-                  onClick={() => removeItem(item.id)}
+                  onClick={() => removeItem(item._id)}
                   className="text-red-500 text-xs hover:underline"
                 >
                   Remove

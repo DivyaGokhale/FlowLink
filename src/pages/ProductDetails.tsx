@@ -6,11 +6,11 @@ import { useToast } from "../components/ToastContext";
 import BackButton from "../components/BackButton";
 
 interface Product {
-  id: number;
+  _id: string;
   name: string;
-  pack: string;
+  pack?: string;
   price: number;
-  image: string;
+  image?: string;
   desc?: string;
   quantity?: number;
 }
@@ -25,30 +25,47 @@ const ProductDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/products.json")
-      .then((res) => res.json())
-      .then((data: Product[]) => {
-        setAllProducts(data);
-        const selected = data.find((p) => p.id === Number(id));
+    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+    const USER_ID = import.meta.env.VITE_ADMIN_USER_ID;
+    if (!USER_ID) {
+      console.warn("VITE_ADMIN_USER_ID is not set. API may return 401.");
+    }
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/products`, {
+          headers: { "x-user-id": USER_ID || "" },
+        });
+        const data = await res.json();
+        const mapped: Product[] = (data || []).map((d: any) => ({
+          _id: d._id,
+          name: d.title || d.name || "Untitled",
+          pack: d.pack,
+          price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
+          image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
+          desc: d.description,
+        }));
+        setAllProducts(mapped);
+        const selected = mapped.find((p) => p._id === id);
         setProduct(selected || null);
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error loading product:", err);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+    load();
   }, [id]);
 
   const addToCart = () => {
     if (!product) return;
 
     const storedCart: Product[] = JSON.parse(localStorage.getItem("cart") || "[]");
-    const existing = storedCart.find((item) => item.id === product.id);
+    const existing = storedCart.find((item) => item._id === product._id);
 
     let updatedCart;
     if (existing) {
       updatedCart = storedCart.map((item) =>
-        item.id === product.id
+        item._id === product._id
           ? { ...item, quantity: (item.quantity || 1) + 1 }
           : item
       );
@@ -80,6 +97,10 @@ const ProductDetails: React.FC = () => {
             <img
               src={product.image}
               alt={product.name}
+              width={320}
+              height={320}
+              loading="lazy"
+              decoding="async"
               className="w-80 h-80 object-contain border rounded-xl p-4"
             />
           </div>
@@ -118,17 +139,21 @@ const ProductDetails: React.FC = () => {
           <h2 className="text-xl font-semibold mb-6">You may also like</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
             {allProducts
-              .filter((p) => p.id !== product.id)
+              .filter((p) => p._id !== product._id)
               .slice(0, 4)
               .map((item) => (
                 <div
-                  key={item.id}
+                  key={item._id}
                   className="cursor-pointer border rounded-xl p-4 hover:shadow-md transition"
-                  onClick={() => navigate(`/product/${item.id}`)}
+                  onClick={() => navigate(`/product/${item._id}`)}
                 >
                   <img
                     src={item.image}
                     alt={item.name}
+                    width={112}
+                    height={112}
+                    loading="lazy"
+                    decoding="async"
                     className="w-28 h-28 mx-auto object-contain"
                   />
                   <p className="mt-2 text-sm font-medium text-center">

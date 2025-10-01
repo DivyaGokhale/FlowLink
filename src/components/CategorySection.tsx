@@ -71,11 +71,11 @@ const CategorySection: React.FC = () => {
             key={cat.id}
             className="bg-white shadow-sm border rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition"
           >
-            <div className="w-42 h-42 flex items-center justify-center overflow-hidden rounded-full bg-gray-50">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-gray-50">
               <img
                 src={cat.image}
                 alt={cat.name}
-                className="w-30 h-30 object-contain"
+                className="w-20 h-20 sm:w-24 sm:h-24 object-contain"
               />
             </div>
             <p className="mt-3 text-sm font-medium text-gray-700 text-center">

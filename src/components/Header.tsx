@@ -58,104 +58,73 @@ const Header = () => {
   }, []);
 
   return (
-    <header
-      style={{
-        display: "flex",
-        alignItems: "center",
-        background: "#fff",
-        padding: "16px 32px",
-        gap: "24px",
-        boxShadow: "0 1px 0 #ededed",
-      }}
-    >
-      {/* Logo */}
-      <span
-        style={{
-          fontSize: "2rem",
-          fontWeight: 500,
-          marginRight: "32px",
-          cursor: "pointer",
-        }}
-        onClick={() => navigate("/")}
-      >
-        FlowLink
-      </span>
+    <header className="w-full border-b bg-white">
+      <div className="max-w-7xl px-4 sm:px-6 py-3">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+          {/* Logo */}
+          <button
+            onClick={() => navigate("/")}
+            aria-label="Go to home"
+            className="flex items-center gap-2 text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
+          >
+            <img
+              src="/assets/logo.svg"
+              alt="FlowLink logo"
+              width={28}
+              height={28}
+              className="w-7 h-7"
+            />
+            <span className="font-mate">FlowLink</span>
+          </button>
 
-      {/* Location selector */}
-      <span
-        style={{
-          display: "flex",
-          alignItems: "center",
-          fontSize: "1rem",
-          color: "#555",
-          marginRight: "16px",
-        }}
-      >
-        <LocationIcon />
-        <span style={{ margin: "0 8px" }}>
-          Delivery to Ratnagiri, Maharashtra
-        </span>
-        <span style={{ fontSize: "1rem" }}>▼</span>
-      </span>
+          {/* Location selector (hidden on small screens) */}
+          <span className="hidden md:inline-flex items-center text-sm text-gray-600 mr-2">
+            <LocationIcon />
+            <span className="mx-2">Delivery to Ratnagiri, Maharashtra</span>
+            <span className="text-sm">▼</span>
+          </span>
 
-      {/* Search bar */}
-      <input
-        type="text"
-        placeholder="Search for products like rice, sugar, oil, masale..."
-        style={{
-          flex: 1,
-          maxWidth: "700px",
-          fontSize: "1rem",
-          padding: "8px 16px",
-          border: "1px solid #ddd",
-          borderRadius: "8px",
-          marginRight: "32px",
-        }}
-      />
+          {/* Search bar - takes full row on mobile */}
+          <div className="order-last w-full md:order-none md:flex-1">
+            <input
+              type="text"
+              placeholder="Search for products like rice, sugar, oil, masale..."
+              aria-label="Search products"
+              className="w-full md:max-w-2xl text-sm sm:text-base px-3 sm:px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/60"
+            />
+          </div>
 
-      {/* Profile, Cart, Alerts icons */}
-      <nav style={{ display: "flex", alignItems: "center", gap: "36px" }}>
-        {/* Profile */}
-        <div style={{ textAlign: "center", cursor: "pointer" }}>
-          <ProfileIcon />
-          <div style={{ fontSize: "0.95rem", marginTop: "2px" }}>Profile</div>
-        </div>
+          {/* Icons */}
+          <nav className="ml-auto flex items-center gap-4 sm:gap-6">
+            {/* Profile */}
+            <button aria-label="Open profile" className="flex flex-col items-center text-xs sm:text-sm cursor-pointer">
+              <ProfileIcon />
+              <span className="mt-0.5 hidden sm:block">Profile</span>
+            </button>
 
-        {/* Cart */}
-        <div
-          style={{ textAlign: "center", position: "relative", cursor: "pointer" }}
-          onClick={() => navigate("/addToCart")}
-        >
-          <CartIcon />
-          {cartCount > 0 && (
-            <span
-              style={{
-                position: "absolute",
-                top: -6,
-                right: 8,
-                background: "#111",
-                color: "#fff",
-                borderRadius: "50%",
-                fontSize: "0.8rem",
-                width: 18,
-                height: 18,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+            {/* Cart */}
+            <button
+              onClick={() => navigate("/addToCart")}
+              aria-label={`Open cart${cartCount > 0 ? ` with ${cartCount} items` : ''}`}
+              className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer"
             >
-              {cartCount}
-            </span>
-          )}
-          <div style={{ fontSize: "0.95rem", marginTop: "2px" }}>Cart</div>
-        </div>
+              <CartIcon />
+              {cartCount > 0 && (
+                <span className="absolute -top-1.5 right-1.5 bg-black text-white rounded-full text-[10px] w-4 h-4 inline-flex items-center justify-center">
+                  {cartCount}
+                </span>
+              )}
+              <span className="mt-0.5 hidden sm:block">Cart</span>
+            </button>
 
-        {/* Alerts */}
-        <div style={{ textAlign: "center", cursor: "pointer" }}>
-          <AlertIcon />
-          <div style={{ fontSize: "0.95rem", marginTop: "2px" }}>Alerts</div>
+            {/* Alerts */}
+            <button aria-label="View alerts" className="flex flex-col items-center text-xs sm:text-sm cursor-pointer">
+              <AlertIcon />
+              <span className="mt-0.5 hidden sm:block">Alerts</span>
+            </button>
+          </nav>
         </div>
-      </nav>
+      </div>
     </header>
   );
 };
