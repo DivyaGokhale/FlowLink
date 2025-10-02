@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 
 // Icons
 const LocationIcon = () => (
@@ -38,6 +39,7 @@ const AlertIcon = () => (
 const Header = () => {
   const navigate = useNavigate();
   const [cartCount, setCartCount] = useState(0);
+  const { isAuthenticated, logout } = useAuth();
 
   // ✅ Update cart count whenever storage changes
   useEffect(() => {
@@ -67,14 +69,8 @@ const Header = () => {
             aria-label="Go to home"
             className="flex items-center gap-2 text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
           >
-            <img
-              src="/assets/logo.svg"
-              alt="FlowLink logo"
-              width={28}
-              height={28}
-              className="w-7 h-7"
-            />
-            <span className="font-mate">FlowLink</span>
+          <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="mx-auto w-[72px] h-[48px] object-contain" />
+          <span className="font-mate">FlowLink</span>
           </button>
 
           {/* Location selector (hidden on small screens) */}
@@ -97,10 +93,25 @@ const Header = () => {
           {/* Icons */}
           <nav className="ml-auto flex items-center gap-4 sm:gap-6">
             {/* Profile */}
-            <button aria-label="Open profile" className="flex flex-col items-center text-xs sm:text-sm cursor-pointer">
-              <ProfileIcon />
-              <span className="mt-0.5 hidden sm:block">Profile</span>
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={logout}
+                aria-label="Logout"
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer"
+              >
+                <ProfileIcon />
+                <span className="mt-0.5 hidden sm:block">Logout</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigate("/login")}
+                aria-label="Login"
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer"
+              >
+                <ProfileIcon />
+                <span className="mt-0.5 hidden sm:block">Login</span>
+              </button>
+            )}
 
             {/* Cart */}
             <button

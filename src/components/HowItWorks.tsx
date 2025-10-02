@@ -3,21 +3,21 @@ import React from "react";
 const steps = [
   {
     id: 1,
-    img: "/src/assets/howitworks/open-app.png",
+    img: "/assets/how-it-works/openapp.png",
     title: "Open the app",
     description:
       "Choose from over 7000 products across groceries, fresh fruits & veggies, meat, pet care, beauty items & more",
   },
   {
     id: 2,
-    img: "/src/assets/howitworks/place-order.png",
+    img: "/assets/how-it-works/placeorder.png",
     title: "Place an order",
     description:
       "Add your favourite items to the cart & avail the best offers",
   },
   {
     id: 3,
-    img: "/src/assets/howitworks/free-delivery.png",
+    img: "/assets/how-it-works/freedelivery.png",
     title: "Get free delivery",
     description:
       "Experience lightning-fast speed & get all your items delivered in 10 minutes",
@@ -39,7 +39,7 @@ const HowItWorks: React.FC = () => {
             <img
               src={step.img}
               alt={step.title}
-              className="w-32 h-32 mx-auto mb-6"
+              className="w-32 h-32 object-contain mx-auto mb-6"
             />
             <h3 className="text-lg font-semibold text-gray-800">
               {step.title}

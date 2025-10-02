@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
+import { useAuth } from "./AuthContext";
 
 interface Product {
   _id: string;
@@ -15,16 +16,21 @@ const ProductShowcase: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast(); // ✅ get toast function
+  const { token, user } = useAuth();
 
   useEffect(() => {
     const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-    const USER_ID = import.meta.env.VITE_ADMIN_USER_ID;
-    if (!USER_ID) {
-      console.warn("VITE_ADMIN_USER_ID is not set. API may return 401.");
+    const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
+    const effectiveUserId = ADMIN_ID || user?.id || "";
+    if (!effectiveUserId) {
+      console.warn("Missing user id: set VITE_ADMIN_USER_ID or ensure user is logged in.");
+      setLoading(false);
+      return;
     }
     fetch(`${API_BASE}/products`, {
       headers: {
-        "x-user-id": USER_ID || "",
+        "x-user-id": effectiveUserId,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
     })
       .then((res) => res.json())
@@ -43,7 +49,7 @@ const ProductShowcase: React.FC = () => {
         console.error("Error fetching products:", err);
         setLoading(false);
       });
-  }, []);
+  }, [token, user?.id]);
 
   const addToCart = (product: Product) => {
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");

@@ -19,7 +19,7 @@ const DiscountBanner = () => (
       {/* Right section: Promo image */}
       <div className="w-full md:w-auto md:basis-[420px] md:shrink-0 flex justify-start">
         <img
-          src="/src/assets/products/teatime-bakes.jpeg"
+          src="/assets/teatime.png"
           alt="Tea Time Bakes Promo"
           className="w-full max-w-xs sm:max-w-sm rounded-2xl shadow-[0_3px_16px_rgba(223,219,232,1)]"
         />

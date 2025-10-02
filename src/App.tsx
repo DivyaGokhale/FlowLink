@@ -1,28 +1,70 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import ProductDetails from "./pages/ProductDetails";
-import AddToCart from "./components/AddToCart"; 
+import AddToCart from "./components/AddToCart";
 import Landingpage from "./pages/Landingpage";
-import {CartProvider} from "./components/CartContext"
-import {ToastProvider}  from "./components/ToastContext";
+import { CartProvider } from "./components/CartContext";
+import { ToastProvider } from "./components/ToastContext";
 import PaymentPage from "./components/PaymentPage";
 import ReviewPage from "./pages/ReviewPage";
+import { AuthProvider } from "./components/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 
 function App() {
   return (
     <>
     <ToastProvider>
-    <CartProvider>
-    <Router>
-      <Routes>
-        <Route path="/" element={<Landingpage />} />
-        <Route path="/product/:id" element={<ProductDetails />} />
-        <Route path="/payment" element={<PaymentPage />} />
-        <Route path="/addToCart" element={<AddToCart />} />  
-        <Route path="/review" element={<ReviewPage />} />
-
-      </Routes>
-    </Router>
-    </CartProvider>
+      <CartProvider>
+        <AuthProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Landingpage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/product/:id"
+                element={
+                  <ProtectedRoute>
+                    <ProductDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment"
+                element={
+                  <ProtectedRoute>
+                    <PaymentPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/addToCart"
+                element={
+                  <ProtectedRoute>
+                    <AddToCart />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/review"
+                element={
+                  <ProtectedRoute>
+                    <ReviewPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </CartProvider>
     </ToastProvider>
     </>
   );
