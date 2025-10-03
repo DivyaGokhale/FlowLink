@@ -20,36 +20,24 @@ const FeaturedProducts: React.FC = () => {
   const { user } = useAuth();
 
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-    const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
-    const effectiveUserId = ADMIN_ID || user?.id || "";
-    if (!effectiveUserId) {
-      console.warn("Missing user id: set VITE_ADMIN_USER_ID or ensure user is logged in.");
-      setLoading(false);
-      return;
-    }
-    fetch(`${API_BASE}/products`, {
-      headers: {
-        "x-user-id": effectiveUserId,
-      },
-    })
+    // Load from local public/products.json
+    fetch(`/products.json`)
       .then((res) => res.json())
       .then((data: any[]) => {
         const mapped: Product[] = (data || []).map((d) => ({
-          _id: d._id,
+          _id: String(d._id || d.id),
           name: d.title || d.name || "Untitled",
           pack: d.pack,
           price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
           image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
-          desc: d.description,
+          desc: d.description || d.desc,
         }));
         setProducts(mapped);
-        setLoading(false);
       })
       .catch((err) => {
-        console.error("Error fetching featured products:", err);
-        setLoading(false);
-      });
+        console.error("Error loading local products.json:", err);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const addToCart = (product: Product) => {
@@ -73,17 +61,15 @@ const FeaturedProducts: React.FC = () => {
 
   return (
     <section className="w-full max-w-7xl mx-auto px-6 py-10">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Featured Products
-      </h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
         {products.map((product) => (
           <div
             key={product._id}
-            className="bg-white border rounded-xl shadow-sm p-4 flex flex-col items-center hover:shadow-md transition"
+            className="bg-white border border-gray-100 rounded-2xl shadow-card p-4 flex flex-col items-center hover:shadow-md transition hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20"
           >
             {/* Product Image */}
-            <Link to={`/product/${product._id}`} className="w-32 h-32 flex items-center justify-center">
+            <Link to={`/product/${product._id}`} className="w-32 h-32 flex items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 overflow-hidden">
               <img
                 src={product.image}
                 alt={product.name}
@@ -91,7 +77,7 @@ const FeaturedProducts: React.FC = () => {
                 height={112}
                 loading="lazy"
                 decoding="async"
-                className="max-h-28 object-contain"
+                className="max-h-28 object-contain transition-transform duration-200 hover:scale-[1.03]"
               />
             </Link>
 
@@ -107,7 +93,7 @@ const FeaturedProducts: React.FC = () => {
             {/* Add to Cart */}
             <button
               onClick={() => addToCart(product)}
-              className="mt-3 w-full bg-green-600 text-white text-sm py-2 rounded-lg hover:bg-green-700 transition"
+              className="mt-3 w-full bg-[hsl(var(--primary))] text-white text-sm py-2.5 rounded-full hover:brightness-95 shadow-button transition"
             >
               Add to Cart
             </button>

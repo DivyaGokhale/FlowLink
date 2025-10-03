@@ -21,18 +21,32 @@ const ProfileIcon = () => (
   </svg>
 );
 
-const CartIcon = () => (
-  <svg width={23} height={23} fill="none">
-    <path d="M6 6h14l-2 8H8" stroke="black" strokeWidth={2} />
-    <circle cx="9" cy="20" r="2" fill="black" />
-    <circle cx="17" cy="20" r="2" fill="black" />
-  </svg>
-);
-
+// Simple bell alert icon
 const AlertIcon = () => (
   <svg width={23} height={23} fill="none">
     <path d="M12 6v8" stroke="black" strokeWidth={2} />
     <circle cx="12" cy="18" r="2" fill="black" />
+  </svg>
+);
+
+const CartIcon = () => (
+  <svg width={26} height={26} viewBox="0 0 24 24" fill="none">
+    <path
+      d="M3 3h2l2.4 10.2a2 2 0 0 0 2 1.6h6.8a2 2 0 0 0 1.95-1.55L20 7H6"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <circle cx="9" cy="20" r="1.8" fill="currentColor" />
+    <circle cx="17" cy="20" r="1.8" fill="currentColor" />
+  </svg>
+);
+
+const OrdersIcon = () => (
+  <svg width={23} height={23} fill="none">
+    <rect x="5" y="4" width="13" height="15" rx="2" stroke="black" />
+    <path d="M8 8h7M8 12h7M8 16h7" stroke="black" strokeWidth={2} />
   </svg>
 );
 
@@ -41,26 +55,19 @@ const Header = () => {
   const [cartCount, setCartCount] = useState(0);
   const { isAuthenticated, logout } = useAuth();
 
-  // ✅ Update cart count whenever storage changes
   useEffect(() => {
     const updateCartCount = () => {
       const cart = JSON.parse(localStorage.getItem("cart") || "[]");
-      const totalItems = cart.reduce(
-        (sum: number, item: any) => sum + (item.quantity || 1),
-        0
-      );
-      setCartCount(totalItems);
+      const total = cart.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0);
+      setCartCount(total);
     };
-
     updateCartCount();
-
-    // Listen to storage changes (other tabs / components)
     window.addEventListener("storage", updateCartCount);
     return () => window.removeEventListener("storage", updateCartCount);
   }, []);
 
   return (
-    <header className="w-full border-b bg-white">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm">
       <div className="max-w-7xl px-4 sm:px-6 py-3">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           {/* Logo */}
@@ -69,35 +76,34 @@ const Header = () => {
             aria-label="Go to home"
             className="flex items-center gap-2 text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
           >
-          <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="mx-auto w-[72px] h-[48px] object-contain" />
-          <span className="font-mate">FlowLink</span>
+            <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="w-[72px] h-[48px] object-contain" />
+            <span className="font-mate">FlowLink</span>
           </button>
 
-          {/* Location selector (hidden on small screens) */}
+          {/* Location */}
           <span className="hidden md:inline-flex items-center text-sm text-gray-600 mr-2">
             <LocationIcon />
             <span className="mx-2">Delivery to Ratnagiri, Maharashtra</span>
             <span className="text-sm">▼</span>
           </span>
 
-          {/* Search bar - takes full row on mobile */}
+          {/* Search */}
           <div className="order-last w-full md:order-none md:flex-1">
             <input
               type="text"
               placeholder="Search for products like rice, sugar, oil, masale..."
               aria-label="Search products"
-              className="w-full md:max-w-2xl text-sm sm:text-base px-3 sm:px-4 py-2 border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-primary/60"
+              className="w-full md:max-w-2xl text-sm sm:text-base px-4 py-2 border border-gray-200 rounded-full bg-secondary shadow-soft outline-none focus:ring-2 focus:ring-primary/60"
             />
           </div>
 
           {/* Icons */}
           <nav className="ml-auto flex items-center gap-4 sm:gap-6">
-            {/* Profile */}
             {isAuthenticated ? (
               <button
                 onClick={logout}
                 aria-label="Logout"
-                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer"
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
               >
                 <ProfileIcon />
                 <span className="mt-0.5 hidden sm:block">Logout</span>
@@ -106,30 +112,40 @@ const Header = () => {
               <button
                 onClick={() => navigate("/login")}
                 aria-label="Login"
-                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer"
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover-text-[hsl(var(--primary))] transition-colors"
               >
                 <ProfileIcon />
                 <span className="mt-0.5 hidden sm:block">Login</span>
               </button>
             )}
 
-            {/* Cart */}
             <button
               onClick={() => navigate("/addToCart")}
               aria-label={`Open cart${cartCount > 0 ? ` with ${cartCount} items` : ''}`}
-              className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer"
+              className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
             >
               <CartIcon />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 right-1.5 bg-black text-white rounded-full text-[10px] w-4 h-4 inline-flex items-center justify-center">
+                <span className="absolute -top-1.5 right-1.5 bg-[hsl(var(--primary))] text-white rounded-full text-[10px] w-4 h-4 inline-flex items-center justify-center shadow-button">
                   {cartCount}
                 </span>
               )}
               <span className="mt-0.5 hidden sm:block">Cart</span>
             </button>
 
-            {/* Alerts */}
-            <button aria-label="View alerts" className="flex flex-col items-center text-xs sm:text-sm cursor-pointer">
+            <button
+              onClick={() => navigate("/orders")}
+              aria-label="View order history"
+              className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
+            >
+              <OrdersIcon />
+              <span className="mt-0.5 hidden sm:block">Orders</span>
+            </button>
+
+            <button
+              aria-label="View alerts"
+              className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
+            >
               <AlertIcon />
               <span className="mt-0.5 hidden sm:block">Alerts</span>
             </button>

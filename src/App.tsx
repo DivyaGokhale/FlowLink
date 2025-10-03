@@ -10,6 +10,17 @@ import { AuthProvider } from "./components/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import OrderHistory from "./pages/OrderHistory";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [pathname]);
+  return null;
+}
 
 function App() {
   return (
@@ -18,9 +29,18 @@ function App() {
       <CartProvider>
         <AuthProvider>
           <Router>
+            <ScrollToTop />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <OrderHistory />
+                  </ProtectedRoute>
+                }
+              />
               <Route
                 path="/"
                 element={

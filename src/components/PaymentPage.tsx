@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "./AuthContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import BackButton from "../components/BackButton";
@@ -14,6 +15,7 @@ interface Product {
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
+  const { token, user } = useAuth();
   const [method, setMethod] = useState("card");
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState("");
@@ -40,7 +42,7 @@ useEffect(() => {
     setFormData({ ...formData, [field]: value });
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     let valid = true;
     let errorMsg = "";
 
@@ -69,6 +71,73 @@ useEffect(() => {
       "paymentDetails",
       JSON.stringify({ method, ...formData })
     );
+
+    // Place order immediately after proceeding
+    try {
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
+      const effectiveUserId = ADMIN_ID || user?.id || "";
+      if (!effectiveUserId) {
+        alert("Missing user ID. Please log in or set VITE_ADMIN_USER_ID.");
+        return;
+      }
+
+      const payload = {
+        items: cartItems.map((it: any) => ({
+          productId: String((it as any)._id || (it as any).id || ""),
+          name: it.name,
+          price: Number(it.price),
+          quantity: Number(it.quantity),
+          image: (it as any).image || ""
+        })),
+        totals,
+        payment: {
+          method,
+          status: method === "cod" ? "Pending" : "Completed",
+          transactionId: `TXN-${Date.now()}`
+        },
+      };
+
+      // Save snapshot for Review page display
+      try {
+        localStorage.setItem(
+          "orderPreview",
+          JSON.stringify({ items: payload.items, totals: payload.totals, payment: payload.payment })
+        );
+      } catch {}
+
+      const res = await fetch(`${API_BASE}/orders`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": effectiveUserId,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || "Failed to place order");
+      }
+      // Persist order locally for history
+      try {
+        const historyRaw = localStorage.getItem("orderHistory");
+        const history = historyRaw ? JSON.parse(historyRaw) : [];
+        const orderRecord = {
+          id: `ORD-${Date.now()}`,
+          createdAt: new Date().toISOString(),
+          ...payload,
+        };
+        const newHistory = [orderRecord, ...history].slice(0, 100); // cap to 100
+        localStorage.setItem("orderHistory", JSON.stringify(newHistory));
+      } catch {}
+
+      // Clear cart after successful order placement
+      localStorage.removeItem("cart");
+    } catch (e: any) {
+      alert(e?.message || "Failed to place order");
+      return;
+    }
 
     navigate("/review");
   };

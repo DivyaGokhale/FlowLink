@@ -78,16 +78,14 @@ const categories: Category[] = [
 const CategorySection: React.FC = () => {
   return (
     <section className="w-full max-w-7xl mx-auto px-6 py-10">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        Explore by Categories
-      </h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Explore by Categories</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
         {categories.map((cat) => (
           <div
             key={cat.id}
-            className="bg-white shadow-sm border rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:shadow-md transition"
+            className="bg-white border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card hover:shadow-md transition hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20"
           >
-            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-gray-50">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-secondary">
               <img
                 src={cat.image}
                 alt={cat.name}
@@ -98,7 +96,7 @@ const CategorySection: React.FC = () => {
                   const fallback = emojiDataUrl("📦");
                   if (target.src !== fallback) target.src = fallback;
                 }}
-                className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-full bg-white p-1"
+                className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-full bg-white p-1 transition-transform duration-200 hover:scale-[1.03]"
               />
             </div>
             <p className="mt-3 text-sm font-medium text-gray-700 text-center">

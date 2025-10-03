@@ -25,30 +25,23 @@ const ProductDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-    const USER_ID = import.meta.env.VITE_ADMIN_USER_ID;
-    if (!USER_ID) {
-      console.warn("VITE_ADMIN_USER_ID is not set. API may return 401.");
-    }
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE}/products`, {
-          headers: { "x-user-id": USER_ID || "" },
-        });
+        const res = await fetch(`/products.json`);
         const data = await res.json();
         const mapped: Product[] = (data || []).map((d: any) => ({
-          _id: d._id,
+          _id: String(d._id || d.id),
           name: d.title || d.name || "Untitled",
           pack: d.pack,
           price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
           image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
-          desc: d.description,
+          desc: d.description || d.desc,
         }));
         setAllProducts(mapped);
-        const selected = mapped.find((p) => p._id === id);
+        const selected = mapped.find((p) => p._id === String(id));
         setProduct(selected || null);
       } catch (err) {
-        console.error("Error loading product:", err);
+        console.error("Error loading local products.json:", err);
       } finally {
         setLoading(false);
       }
