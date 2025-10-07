@@ -30,7 +30,9 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       {toast.visible && (
         <div
           key={toast.id} // 🔑 forces React to remount
-          className="fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50"
+          role="status"
+          aria-live="polite"
+          className="fixed top-4 right-4 animate-fade-in-up bg-[hsl(var(--primary))] text-white px-4 py-3 rounded-lg shadow-xl ring-1 ring-black/5 z-50"
         >
           {toast.message}
         </div>

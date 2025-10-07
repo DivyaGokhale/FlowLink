@@ -74,10 +74,10 @@ const Header = () => {
           <button
             onClick={() => navigate("/")}
             aria-label="Go to home"
-            className="flex items-center gap-2 text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
+            className="flex items-center text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
           >
-            <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="w-[72px] h-[48px] object-contain" />
-            <span className="font-mate">FlowLink</span>
+            <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="w-[70px] h-[40px] object-contain" />
+            <span className="font-mate text-black text-bold text-[20px] font-medium">FlowLink</span>
           </button>
 
           {/* Location */}
@@ -89,12 +89,21 @@ const Header = () => {
 
           {/* Search */}
           <div className="order-last w-full md:order-none md:flex-1">
-            <input
-              type="text"
-              placeholder="Search for products like rice, sugar, oil, masale..."
-              aria-label="Search products"
-              className="w-full md:max-w-2xl text-sm sm:text-base px-4 py-2 border border-gray-200 rounded-full bg-secondary shadow-soft outline-none focus:ring-2 focus:ring-primary/60"
-            />
+            <div className="relative md:max-w-2xl">
+              <svg
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                width="18" height="18" viewBox="0 0 24 24" fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search for products like rice, sugar, oil, masale..."
+                aria-label="Search products"
+                className="w-full text-sm sm:text-base pl-9 pr-4 py-2 border border-gray-200 rounded-full bg-secondary/80 backdrop-blur shadow-soft outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/50 transition"
+              />
+            </div>
           </div>
 
           {/* Icons */}
@@ -112,7 +121,7 @@ const Header = () => {
               <button
                 onClick={() => navigate("/login")}
                 aria-label="Login"
-                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover-text-[hsl(var(--primary))] transition-colors"
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
               >
                 <ProfileIcon />
                 <span className="mt-0.5 hidden sm:block">Login</span>

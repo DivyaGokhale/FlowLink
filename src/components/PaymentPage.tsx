@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import { useAddress } from "./AddressContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import BackButton from "../components/BackButton";
@@ -11,32 +12,34 @@ interface Product {
   pack: string;
   price: number;
   quantity: number;
+  image?: string;
 }
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const { token, user } = useAuth();
-  const [method, setMethod] = useState("card");
+  const { selectedAddress, addresses } = useAddress();
+  const [method, setMethod] = useState("upi");
   const [formData, setFormData] = useState<any>({});
-  const [error, setError] = useState("");
   const [cartItems, setCartItems] = useState<Product[]>([]);
   const [totals, setTotals] = useState({ subtotal: 0, gst: 0, delivery: 50, total: 0 });
+  const [error, setError] = useState("");
 
   // Load cart from localStorage
-// inside useEffect in PaymentPage.tsx
-useEffect(() => {
-  const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-  setCartItems(storedCart);
+  useEffect(() => {
+    const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    setCartItems(storedCart);
 
-  const distance = 3.0; // mock distance
-  let subtotal = storedCart.reduce(
-    (acc: number, item: Product) => acc + item.price * item.quantity,
-    0
-  );
-  let gst = Math.round(subtotal * 0.05); // 5% GST
-  let delivery = storedCart.length > 0 ? Math.round(distance * 10) : 0;
-  setTotals({ subtotal, gst, delivery, total: subtotal + gst + delivery });
-}, []);
+    if (storedCart.length > 0) {
+      let subtotal = storedCart.reduce(
+        (acc: number, item: Product) => acc + item.price * item.quantity,
+        0
+      );
+      let gst = Math.round(subtotal * 0.05); // 5% GST
+      let delivery = Math.round((selectedAddress?.time === "25 mins" ? 3.0 : 5.0) * 10); // Base delivery calculation
+      setTotals({ subtotal, gst, delivery, total: subtotal + gst + delivery });
+    }
+  }, [selectedAddress]);
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
@@ -46,17 +49,26 @@ useEffect(() => {
     let valid = true;
     let errorMsg = "";
 
-    if (method === "upi" && !formData.upi) {
+    // Check if address is selected
+    if (!selectedAddress) {
       valid = false;
-      errorMsg = "Please enter UPI ID";
+      errorMsg = "Please select a delivery address";
     }
-    if (method === "card" && (!formData.cardNumber || !formData.expiry || !formData.cvv || !formData.cardName)) {
-      valid = false;
-      errorMsg = "Please fill all card details";
-    }
-    if (method === "bank" && (!formData.account || !formData.ifsc || !formData.holder)) {
-      valid = false;
-      errorMsg = "Please fill all bank details";
+
+    // Basic payment validation
+    if (valid) {
+      if (method === "upi" && !formData.upi) {
+        valid = false;
+        errorMsg = "Please enter UPI ID";
+      }
+      if (method === "card" && (!formData.cardNumber || !formData.expiry || !formData.cvv || !formData.cardName)) {
+        valid = false;
+        errorMsg = "Please fill all card details";
+      }
+      if (method === "bank" && (!formData.account || !formData.ifsc || !formData.holder)) {
+        valid = false;
+        errorMsg = "Please fill all bank details";
+      }
     }
 
     if (!valid) {
@@ -74,7 +86,7 @@ useEffect(() => {
 
     // Place order immediately after proceeding
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
       const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
       const effectiveUserId = ADMIN_ID || user?.id || "";
       if (!effectiveUserId) {
@@ -91,6 +103,18 @@ useEffect(() => {
           image: (it as any).image || ""
         })),
         totals,
+        shippingAddress: {
+          name: selectedAddress?.name || "",
+          line1: selectedAddress?.line1 || "",
+          line2: selectedAddress?.line2 || "",
+          city: selectedAddress?.city || "",
+          state: selectedAddress?.state || "",
+          postalCode: selectedAddress?.postalCode || "",
+          country: selectedAddress?.country || "India",
+          phone: selectedAddress?.phone || "",
+        },
+        customerName: selectedAddress?.name || "",
+        customerEmail: user?.email || selectedAddress?.email || undefined,
         payment: {
           method,
           status: method === "cod" ? "Pending" : "Completed",
@@ -146,10 +170,10 @@ useEffect(() => {
     <>
     <Header />
     <BackButton confirmOnPayment fallbackPath="/addToCart" />
-    <div className="bg-gray-50 min-h-screen p-6 flex flex-col items-center">
+    <div className="bg-gray-50 min-h-screen p-6 flex flex-col items-center animate-fade-in-up">
       <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Order Summary */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-1">
+        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
           <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
           <div className="space-y-3">
             {cartItems.length === 0 ? (
@@ -184,21 +208,88 @@ useEffect(() => {
           </div>
         </div>
 
+        {/* Delivery Address */}
+        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
+          <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
+          <div className="space-y-3">
+            {selectedAddress ? (
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="font-medium text-green-700">{selectedAddress.type}</span>
+                  {selectedAddress.isDefault && (
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                      Default
+                    </span>
+                  )}
+                  <span className="text-sm bg-gray-200 text-gray-600 px-2 py-1 rounded ml-auto">
+                    {selectedAddress.time || "25 mins"}
+                  </span>
+                </div>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>{selectedAddress.name}</p>
+                  <p>{selectedAddress.line1}</p>
+                  {selectedAddress.line2 && <p>{selectedAddress.line2}</p>}
+                  <p>{selectedAddress.city}, {selectedAddress.state} {selectedAddress.postalCode}</p>
+                  <p>{selectedAddress.phone}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <p className="text-gray-500 text-sm mb-3">No address selected</p>
+                <button
+                  onClick={() => navigate("/addToCart")}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  Select Address
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Payment Section */}
-        <div className="bg-white shadow rounded-lg p-6 md:col-span-2">
-          <h2 className="text-lg font-semibold mb-4">Select Payment Method</h2>
+        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
+          <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
+
+          {/* Product Preview */}
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <h3 className="text-sm font-medium mb-2">Items in Cart</h3>
+            <div className="space-y-2 max-h-32 overflow-y-auto">
+              {cartItems.slice(0, 3).map((item) => (
+                <div key={item.id} className="flex items-center gap-2 text-sm">
+                  <img
+                    src={item.image || "/placeholder.jpg"}
+                    alt={item.name}
+                    className="w-8 h-8 object-cover rounded"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="truncate">{item.name}</p>
+                    <p className="text-xs text-gray-500">{item.quantity} × ₹{item.price}</p>
+                  </div>
+                  <span className="font-medium">₹{item.quantity * item.price}</span>
+                </div>
+              ))}
+              {cartItems.length > 3 && (
+                <p className="text-xs text-gray-500">+{cartItems.length - 3} more items</p>
+              )}
+            </div>
+          </div>
 
           {/* Payment options */}
-          <div className="space-y-4">
+          <div className="space-y-3">
             {[
-              { value: "upi", label: "UPI Payment (Google Pay, PhonePe, Paytm)" },
-              { value: "card", label: "Debit/Credit Card (Visa, Mastercard, RuPay)" },
-              { value: "bank", label: "Bank Transfer (Direct Account Transfer)" },
-              { value: "cod", label: "Cash on Delivery" },
+              { value: "upi", label: "UPI Payment", icon: "📱" },
+              { value: "card", label: "Credit/Debit Card", icon: "💳" },
+              { value: "bank", label: "Net Banking", icon: "🏦" },
+              { value: "cod", label: "Cash on Delivery", icon: "💰" },
             ].map((opt) => (
               <label
                 key={opt.value}
-                className="flex items-center border rounded-lg p-3 cursor-pointer"
+                className={`flex items-center border rounded-lg p-3 cursor-pointer transition-all ${
+                  method === opt.value
+                    ? "border-green-500 bg-green-50"
+                    : "border-gray-200 hover:bg-gray-50"
+                }`}
               >
                 <input
                   type="radio"
@@ -210,87 +301,114 @@ useEffect(() => {
                     setFormData({});
                     setError("");
                   }}
-                  className="mr-3"
+                  className="mr-3 accent-green-500"
                 />
-                <span>{opt.label}</span>
+                <span className="mr-2">{opt.icon}</span>
+                <span className="text-sm">{opt.label}</span>
               </label>
             ))}
           </div>
 
           {/* Dynamic Inputs */}
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 space-y-3">
             {method === "upi" && (
-              <input
-                type="text"
-                placeholder="Enter UPI ID"
-                value={formData.upi || ""}
-                onChange={(e) => handleChange("upi", e.target.value)}
-                className="w-full border p-2 rounded"
-              />
+              <div key="upi-input">
+                <label className="block text-sm font-medium mb-1">UPI ID</label>
+                <input
+                  type="text"
+                  placeholder="Enter UPI ID (e.g., user@paytm)"
+                  value={formData.upi || ""}
+                  onChange={(e) => handleChange("upi", e.target.value)}
+                  className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                />
+              </div>
             )}
             {method === "card" && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Card Number"
-                  value={formData.cardNumber || ""}
-                  onChange={(e) => handleChange("cardNumber", e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-                <div className="flex gap-4">
+              <div key="card-inputs">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Card Number</label>
                   <input
                     type="text"
-                    placeholder="MM/YY"
-                    value={formData.expiry || ""}
-                    onChange={(e) => handleChange("expiry", e.target.value)}
-                    className="w-1/2 border p-2 rounded"
-                  />
-                  <input
-                    type="text"
-                    placeholder="CVV"
-                    value={formData.cvv || ""}
-                    onChange={(e) => handleChange("cvv", e.target.value)}
-                    className="w-1/2 border p-2 rounded"
+                    placeholder="1234 5678 9012 3456"
+                    value={formData.cardNumber || ""}
+                    onChange={(e) => handleChange("cardNumber", e.target.value)}
+                    className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
                   />
                 </div>
-                <input
-                  type="text"
-                  placeholder="Cardholder Name"
-                  value={formData.cardName || ""}
-                  onChange={(e) => handleChange("cardName", e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Expiry</label>
+                    <input
+                      type="text"
+                      placeholder="MM/YY"
+                      value={formData.expiry || ""}
+                      onChange={(e) => handleChange("expiry", e.target.value)}
+                      className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">CVV</label>
+                    <input
+                      type="text"
+                      placeholder="123"
+                      value={formData.cvv || ""}
+                      onChange={(e) => handleChange("cvv", e.target.value)}
+                      className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Cardholder Name</label>
+                  <input
+                    type="text"
+                    placeholder="Name on card"
+                    value={formData.cardName || ""}
+                    onChange={(e) => handleChange("cardName", e.target.value)}
+                    className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                  />
+                </div>
+              </div>
             )}
             {method === "bank" && (
-              <>
-                <input
-                  type="text"
-                  placeholder="Account Number"
-                  value={formData.account || ""}
-                  onChange={(e) => handleChange("account", e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="IFSC Code"
-                  value={formData.ifsc || ""}
-                  onChange={(e) => handleChange("ifsc", e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-                <input
-                  type="text"
-                  placeholder="Account Holder Name"
-                  value={formData.holder || ""}
-                  onChange={(e) => handleChange("holder", e.target.value)}
-                  className="w-full border p-2 rounded"
-                />
-              </>
+              <div key="bank-inputs">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Account Number</label>
+                  <input
+                    type="text"
+                    placeholder="Account number"
+                    value={formData.account || ""}
+                    onChange={(e) => handleChange("account", e.target.value)}
+                    className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">IFSC Code</label>
+                  <input
+                    type="text"
+                    placeholder="IFSC code"
+                    value={formData.ifsc || ""}
+                    onChange={(e) => handleChange("ifsc", e.target.value)}
+                    className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Account Holder Name</label>
+                  <input
+                    type="text"
+                    placeholder="Account holder name"
+                    value={formData.holder || ""}
+                    onChange={(e) => handleChange("holder", e.target.value)}
+                    className="w-full border border-gray-200 p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none"
+                  />
+                </div>
+              </div>
             )}
             {method === "cod" && (
-              <p className="text-gray-600 text-sm">
-                You can pay in cash when your order is delivered.
-              </p>
+              <div key="cod-info">
+                <p className="text-gray-600 text-sm">
+                  You can pay in cash when your order is delivered.
+                </p>
+              </div>
             )}
           </div>
 
@@ -298,18 +416,18 @@ useEffect(() => {
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
           {/* Buttons */}
-          <div className="flex justify-between mt-6">
+          <div className="flex justify-between mt-6 gap-3">
             <button
               onClick={() => navigate("/addToCart")}
-              className="bg-gray-200 px-4 py-2 rounded"
+              className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/30 active:scale-[0.99]"
             >
-              Back to Cart
+              Back
             </button>
             <button
               onClick={handleContinue}
-              className="bg-green-600 text-white px-6 py-2 rounded"
+              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow-button hover:bg-green-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 active:scale-[0.99]"
             >
-              Continue to Review
+              Place Order
             </button>
           </div>
         </div>

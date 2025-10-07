@@ -2,12 +2,15 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
 import { useAuth } from "./AuthContext";
+import Skeleton from "./ui/Skeleton";
 
 interface Product {
   _id: string;
   name: string;
+  category?: string;
   pack?: string;
   price: number;
+  mrp?: number;
   image?: string;
   quantity?: number;
 }
@@ -19,23 +22,30 @@ const ProductShowcase: React.FC = () => {
   const { token, user } = useAuth();
 
   useEffect(() => {
-    // Load from local public/products.json
-    fetch(`/products.json`)
-      .then((res) => res.json())
-      .then((data: any[]) => {
-        const mapped: Product[] = (data || []).map((d) => ({
+    const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`${baseUrl}/products`);
+        const data = await res.json();
+        const mapped: Product[] = (data || []).map((d: any) => ({
           _id: String(d._id || d.id),
           name: d.title || d.name || "Untitled",
+          category: d.category,
           pack: d.pack,
           price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
+          mrp: typeof d.mrp === 'number' ? d.mrp : (d.mrp ? parseFloat(d.mrp) : undefined),
           image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
+          quantity: typeof d.quantity === 'number' ? d.quantity : undefined,
         }));
         setProducts(mapped);
-      })
-      .catch((err) => {
-        console.error("Error loading local products.json:", err);
-      })
-      .finally(() => setLoading(false));
+      } catch (err) {
+        console.error("Error loading products from API:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, [token, user?.id]);
 
   const addToCart = (product: Product) => {
@@ -55,16 +65,16 @@ const ProductShowcase: React.FC = () => {
 
   if (loading) {
     return (
-      <section className="w-full bg-white py-12">
+      <section className="w-full bg-white py-12 animate-fade-in-up">
         <div className="max-w-7xl px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-normal mb-2">Your Go-To Items</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-10">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="border rounded-2xl p-5 sm:p-6 animate-pulse">
-                <div className="aspect-square w-full rounded-lg bg-gray-100 mb-5" />
-                <div className="h-4 bg-gray-100 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-gray-100 rounded w-1/2 mb-3" />
-                <div className="h-9 bg-gray-100 rounded" />
+              <div key={i} className="bg-white border border-gray-100 rounded-2xl shadow-card p-4">
+                <Skeleton className="aspect-square w-full rounded-lg" />
+                <Skeleton className="h-4 w-3/4 mt-3" />
+                <Skeleton className="h-3 w-1/2 mt-2" />
+                <Skeleton className="h-8 w-full mt-3 rounded-full" />
               </div>
             ))}
           </div>
@@ -74,46 +84,58 @@ const ProductShowcase: React.FC = () => {
   }
 
   return (
-    <section className="w-full bg-white py-12">
+    <section className="w-full bg-white py-12 animate-fade-in-up">
       <div className="max-w-7xl px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl sm:text-3xl font-normal mb-2">Your Go-To Items</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 sm:gap-8 lg:gap-10">
-          {products.map((item) => (
-            <div
-              key={item._id}
-              className="bg-white border border-gray-100 rounded-2xl shadow-card hover:shadow-md transition-transform duration-200 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 flex flex-col justify-between items-start p-5 sm:p-6 min-h-[280px]"
-            >
-              <Link to={`/product/${item._id}`} className="w-full no-underline text-inherit outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 rounded-lg">
-                <div className="aspect-square w-full rounded-lg bg-gray-50 flex items-center justify-start mb-5 overflow-hidden">
-                  <img
-                    src={item.image}
-                    alt={item.name}
-                    width={112}
-                    height={112}
-                    loading="lazy"
-                    decoding="async"
-                    className="w-24 h-24 sm:w-28 sm:h-28 object-contain transition-transform duration-200 hover:scale-[1.03]"
-                  />
-                </div>
-                <div
-                  className="text-base sm:text-lg font-medium text-left mb-2 text-gray-800"
-                  style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
-                >
-                  {item.name}
-                </div>
-              </Link>
-              <div className="w-full" style={{ minHeight: 50 }}>
-                <div className="text-xs sm:text-sm text-gray-500 mb-1">{item.pack}</div>
-                <div className="text-sm sm:text-base font-semibold text-gray-900">₹{item.price}</div>
-              </div>
-              <button
-                onClick={() => addToCart(item)}
-                className="w-full bg-[hsl(var(--primary))] text-white text-sm sm:text-base py-2.5 rounded-full hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 shadow-button transition"
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
+          {products.map((item) => {
+            const hasDiscount = item.mrp && item.mrp > (item.price || 0)
+            const discount = hasDiscount ? Math.round(((item.mrp! - item.price) / item.mrp!) * 100) : 0
+            return (
+              <div
+                key={item._id}
+                className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 p-4 flex flex-col"
               >
-                Add to Cart
-              </button>
-            </div>
-          ))}
+                {/* Product Image */}
+                <Link to={`/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 rounded-lg">
+                  <div className="aspect-square w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
+                    <img
+                      src={item.image}
+                      alt={item.name}
+                      width={160}
+                      height={160}
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
+                  </div>
+                </Link>
+                {/* Title */}
+                <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[38px]">{item.name}</div>
+                {/* Category/Pack */}
+                <div className="text-xs text-gray-500">{item.category || item.pack || 'Others'}</div>
+                {/* Price Row */}
+                <div className="mt-2 flex items-baseline gap-2">
+                  <div className="text-lg font-semibold text-gray-900">₹{item.price}</div>
+                  {hasDiscount && (
+                    <>
+                      <div className="text-xs line-through text-gray-400">₹{item.mrp}</div>
+                      <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
+                    </>
+                  )}
+                </div>
+                {/* Actions */}
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Link to={`/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
+                    View
+                  </Link>
+                  <button onClick={() => addToCart(item)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </section>

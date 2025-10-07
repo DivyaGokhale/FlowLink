@@ -12,7 +12,7 @@ const paymentMethods = [
 
 const PaymentOptions: React.FC = () => {
   return (
-    <section className="w-full py-12 bg-white text-center">
+    <section className="w-full py-12 bg-white text-center animate-fade-in-up">
       <h2 className="text-3xl font-bold text-gray-800 mb-8">
         Payment Options
       </h2>
@@ -23,7 +23,7 @@ const PaymentOptions: React.FC = () => {
             key={method.name}
             src={method.img}
             alt={method.name}
-            className="h-10 object-contain"
+            className="h-10 object-contain opacity-90 hover:opacity-100 transition-transform duration-300 hover:scale-[1.04]"
           />
         ))}
       </div>

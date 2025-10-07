@@ -26,7 +26,7 @@ const testimonials = [
 
 const Testimonials: React.FC = () => {
   return (
-    <section className="w-full max-w-7xl mx-auto px-6 py-10 text-center">
+    <section className="w-full max-w-7xl mx-auto px-6 py-10 text-center animate-fade-in-up">
       <h2 className="text-3xl font-bold text-gray-800 mt-2 mb-4">
         What Clients Say
       </h2>
@@ -39,7 +39,7 @@ const Testimonials: React.FC = () => {
         {testimonials.map((t) => (
           <div
             key={t.id}
-            className="bg-white rounded-2xl shadow-lg p-6 flex flex-col items-center text-center hover:shadow-xl transition"
+            className="bg-white/90 backdrop-blur rounded-2xl shadow-lg p-6 flex flex-col items-center text-center transition-transform duration-300 hover:shadow-xl hover:-translate-y-1.5 animate-scale-in"
           >
             <img
               src={t.image}

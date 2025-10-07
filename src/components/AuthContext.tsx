@@ -1,4 +1,12 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { app } from "../lib/firebase";
+import {
+  getAuth,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  signOut,
+} from "firebase/auth";
 
 interface User {
   id: string;
@@ -12,7 +20,10 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: { name?: string; email: string; password: string }) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  loginWithMicrosoft: () => Promise<void>;
   logout: () => void;
+  hydrated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -39,7 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem("auth", JSON.stringify({ user, token }));
   }, [user, token, hydrated]);
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+  const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
   const login = async (email: string, password: string) => {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -78,15 +89,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const socialLogin = async (providerName: "google" | "microsoft") => {
+    const auth = getAuth(app);
+    const provider =
+      providerName === "google"
+        ? new GoogleAuthProvider()
+        : new OAuthProvider("microsoft.com");
+    const result = await signInWithPopup(auth, provider as any);
+    const fUser = result.user;
+    const idToken = await fUser.getIdToken();
+    const profile = {
+      id: fUser.uid,
+      name: fUser.displayName || "",
+      email: fUser.email || "",
+    };
+    setUser(profile);
+    setToken(idToken);
+  };
+
+  const loginWithGoogle = () => socialLogin("google");
+  const loginWithMicrosoft = () => socialLogin("microsoft");
+
   const logout = () => {
+    const auth = getAuth(app);
+    try { signOut(auth); } catch {}
     setToken(null);
     setUser(null);
     localStorage.removeItem("auth");
   };
 
   const value = useMemo(
-    () => ({ user, token, isAuthenticated: Boolean(token), login, register, logout }),
-    [user, token]
+    () => ({ user, token, isAuthenticated: Boolean(token), login, register, loginWithGoogle, loginWithMicrosoft, logout, hydrated }),
+    [user, token, hydrated]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
