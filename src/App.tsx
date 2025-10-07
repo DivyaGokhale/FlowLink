@@ -5,8 +5,10 @@ import Landingpage from "./pages/Landingpage";
 import { CartProvider } from "./components/CartContext";
 import { ToastProvider } from "./components/ToastContext";
 import PaymentPage from "./components/PaymentPage";
+import Shop from "./pages/Shop";
 import ReviewPage from "./pages/ReviewPage";
 import { AuthProvider } from "./components/AuthContext";
+import { AddressProvider } from "./components/AddressContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -28,61 +30,71 @@ function App() {
     <ToastProvider>
       <CartProvider>
         <AuthProvider>
-          <Router>
-            <ScrollToTop />
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route
-                path="/orders"
-                element={
-                  <ProtectedRoute>
-                    <OrderHistory />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Landingpage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/product/:id"
-                element={
-                  <ProtectedRoute>
-                    <ProductDetails />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment"
-                element={
-                  <ProtectedRoute>
-                    <PaymentPage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/addToCart"
-                element={
-                  <ProtectedRoute>
-                    <AddToCart />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/review"
-                element={
-                  <ProtectedRoute>
-                    <ReviewPage />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </Router>
+          <AddressProvider>
+            <Router>
+              <ScrollToTop />
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route
+                  path="/orders"
+                  element={
+                    <ProtectedRoute>
+                      <OrderHistory />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Landingpage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/shop"
+                  element={
+                    <ProtectedRoute>
+                      <Shop />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/product/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ProductDetails />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/payment"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/addToCart"
+                  element={
+                    <ProtectedRoute>
+                      <AddToCart />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/review"
+                  element={
+                    <ProtectedRoute>
+                      <ReviewPage />
+                    </ProtectedRoute>
+                  }
+                />
+              </Routes>
+            </Router>
+          </AddressProvider>
         </AuthProvider>
       </CartProvider>
     </ToastProvider>

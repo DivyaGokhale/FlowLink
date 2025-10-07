@@ -9,9 +9,25 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const PORT = process.env.PORT || 5000;
+// Resolve root .env even when starting from server/
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config();
+if (!process.env.MONGO_URI) {
+  const rootEnvPath = path.resolve(__dirname, '../.env');
+  if (fs.existsSync(rootEnvPath)) {
+    dotenv.config({ path: rootEnvPath });
+  }
+}
+
+const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID || 'HS9Yf7yCJ3Zc6MSIFDa3oOlN1Wl1';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://FlowLink:FlowLink8550@flowlink.wlohsvp.mongodb.net/?retryWrites=true&w=majority&appName=FlowLink';
+const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'test';
 
 const app = express();
 app.use(express.json());
@@ -24,8 +40,6 @@ app.use(cors({
 }));
 
 // Data files
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 const dataDir = path.join(__dirname, 'data');
 const usersFile = path.join(dataDir, 'users.json');
 const productsFile = path.join(dataDir, 'products.json');
@@ -68,6 +82,108 @@ function sign(user) {
   return jwt.sign({ sub: user.id }, JWT_SECRET, { expiresIn: '7d' });
 }
 
+// Mongoose models
+const userSchema = new mongoose.Schema({
+  id: { type: String, index: true }, // uuid v4 for app-facing id
+  name: { type: String, default: '' },
+  email: { type: String, required: true, unique: true },
+  passwordHash: { type: String, required: true },
+  createdAt: { type: Date, default: () => new Date() },
+}, { timestamps: true });
+
+const orderItemSchema = new mongoose.Schema({
+  productId: { type: String, required: true },
+  name: { type: String, required: true },
+  price: { type: Number, required: true },
+  quantity: { type: Number, required: true },
+  image: { type: String },
+}, { _id: false });
+
+// Address subdocument used for shipping/billing
+const addressSchema = new mongoose.Schema({
+  name: String,
+  line1: String,
+  line2: String,
+  city: String,
+  state: String,
+  postalCode: String,
+  country: String,
+  phone: String,
+  email: String,
+  label: { type: String, default: 'shipping' },
+  isDefault: { type: Boolean, default: false }
+}, { _id: false });
+
+const orderSchema = new mongoose.Schema({
+  userId: { type: String, required: true }, // who owns/sees this order (admin id for dashboard)
+  customerId: { type: String },
+  customerName: { type: String },
+  customerEmail: { type: String },
+  items: { type: [orderItemSchema], default: [] },
+  shippingAddress: { type: addressSchema, default: undefined },
+  totals: {
+    subtotal: { type: Number, default: 0 },
+    gst: { type: Number, default: 0 },
+    delivery: { type: Number, default: 0 },
+    total: { type: Number, default: 0 },
+  },
+  payment: {
+    method: { type: String, default: 'unknown' },
+    status: { type: String, default: 'Pending' },
+    transactionId: { type: String, default: '' },
+  },
+}, { timestamps: true });
+
+let User;
+let Order;
+let Customer;
+let Product;
+try {
+  User = mongoose.model('User');
+} catch { User = mongoose.model('User', userSchema); }
+try {
+  Order = mongoose.model('Order');
+} catch { Order = mongoose.model('Order', orderSchema); }
+
+// Customer model (aligned with admin service minimal fields; includes addresses array)
+const customerSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  firstName: String,
+  lastName: String,
+  language: String,
+  email: { type: String, index: true },
+  phoneCountry: String,
+  phoneNumber: { type: String, index: true },
+  marketingEmails: Boolean,
+  marketingSMS: Boolean,
+  collectTax: String,
+  notes: String,
+  tags: String,
+  status: { type: String, default: 'Active' },
+  addresses: { type: [addressSchema], default: [] }
+}, { timestamps: true });
+
+try {
+  Customer = mongoose.model('Customer');
+} catch { Customer = mongoose.model('Customer', customerSchema); }
+
+// Product model (to read products created by admin in the Mongo database)
+const productSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  title: String,
+  description: String,
+  price: { type: Number, default: 0 },
+  mrp: { type: Number, default: 0 },
+  quantity: { type: Number, default: 0 },
+  status: { type: String, default: 'Active' },
+  category: String,
+  images: [String]
+}, { timestamps: true });
+
+try {
+  Product = mongoose.model('Product');
+} catch { Product = mongoose.model('Product', productSchema); }
+
 // Routes base
 const base = '/api';
 
@@ -76,38 +192,221 @@ app.get(base + '/health', (req, res) => res.json({ ok: true }));
 
 // Auth: Register
 app.post(base + '/auth/register', async (req, res) => {
-  const { name, email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'email and password required' });
-  const users = readJson(usersFile);
-  const existing = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
-  if (existing) return res.status(409).json({ error: 'Email already registered' });
-  const hash = await bcrypt.hash(password, 10);
-  const user = { id: uuidv4(), name: name || '', email, passwordHash: hash, createdAt: new Date().toISOString() };
-  users.push(user);
-  writeJson(usersFile, users);
-  // Return token+user for convenience
-  const token = sign(user);
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+  try {
+    const { name, email, password } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+
+    const existing = await User.findOne({ email: { $regex: `^${String(email)}$`, $options: 'i' } }).lean();
+    if (existing) return res.status(409).json({ error: 'Email already registered' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const doc = await User.create({ id: uuidv4(), name: name || '', email, passwordHash: hash });
+    const user = { id: doc.id, name: doc.name, email: doc.email };
+    const token = sign(user);
+    res.json({ token, user });
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Auth: Login
 app.post(base + '/auth/login', async (req, res) => {
-  const { email, password } = req.body || {};
-  const users = readJson(usersFile);
-  const user = users.find(u => u.email.toLowerCase() === String(email).toLowerCase());
-  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-  const token = sign(user);
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+  try {
+    const { email, password } = req.body || {};
+    const doc = await User.findOne({ email: { $regex: `^${String(email)}$`, $options: 'i' } });
+    if (!doc) return res.status(401).json({ error: 'Invalid credentials' });
+    const ok = await bcrypt.compare(password, doc.passwordHash);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    const user = { id: doc.id, name: doc.name, email: doc.email };
+    const token = sign(user);
+    res.json({ token, user });
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
 // Products
-app.get(base + '/products', (req, res) => {
-  const items = readJson(productsFile);
-  res.json(items);
+app.get(base + '/products', async (req, res) => {
+  try {
+    // Show products created by the admin user so customers see the real catalog
+    const sellerId = String(ADMIN_USER_ID || '');
+    const filter = sellerId ? { userId: sellerId } : {};
+    const docs = await Product.find(filter).sort({ createdAt: -1 }).lean();
+    res.json(docs);
+  } catch (err) {
+    console.error('List products error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Dev API listening on http://localhost:${PORT}`);
+// Product details
+app.get(base + '/products/:id', async (req, res) => {
+  try {
+    const sellerId = String(ADMIN_USER_ID || '');
+    const { id } = req.params;
+    const filter = sellerId ? { _id: new mongoose.Types.ObjectId(id), userId: sellerId } : { _id: new mongoose.Types.ObjectId(id) };
+    const doc = await Product.findOne(filter).lean();
+    if (!doc) return res.status(404).json({ error: 'Not found' });
+    res.json(doc);
+  } catch (err) {
+    res.status(400).json({ error: 'Bad id' });
+  }
 });
+
+// Orders: create
+app.post(base + '/orders', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
+
+    const { items, totals, payment, shippingAddress, customerEmail, customerName } = req.body || {};
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: 'items required' });
+    }
+
+    // Normalize and validate shipping
+    const ship = (shippingAddress && typeof shippingAddress === 'object') ? shippingAddress : {};
+    const requiredShip = ['name','line1','city','state','postalCode','phone'];
+    for (const k of requiredShip) {
+      if (!String(ship[k] || '').trim()) {
+        return res.status(400).json({ error: `shippingAddress.${k} is required` });
+      }
+    }
+
+    const parseName = (full) => {
+      if (!full) return { firstName: '', lastName: '' };
+      const parts = String(full).trim().split(/\s+/);
+      const firstName = parts.shift() || '';
+      const lastName = parts.join(' ') || '';
+      return { firstName, lastName };
+    };
+
+    // Upsert customer by (userId + email/phone)
+    let customerDoc = null;
+    const email = (customerEmail || ship.email || '').toLowerCase() || undefined;
+    const phone = ship.phone || undefined;
+    const findFilter = { userId: String(userId) };
+    if (email || phone) {
+      findFilter['$or'] = [];
+      if (email) findFilter['$or'].push({ email });
+      if (phone) findFilter['$or'].push({ phoneNumber: phone });
+    }
+    if (findFilter['$or'] && findFilter['$or'].length) {
+      customerDoc = await Customer.findOne(findFilter);
+    }
+    const { firstName, lastName } = parseName(customerName || ship.name);
+    const addr = {
+      name: ship.name,
+      line1: ship.line1,
+      line2: ship.line2 || '',
+      city: ship.city,
+      state: ship.state,
+      postalCode: ship.postalCode,
+      country: ship.country || 'India',
+      phone: ship.phone,
+      email: email,
+      label: 'shipping',
+      isDefault: true
+    };
+    if (!customerDoc) {
+      customerDoc = await Customer.create({
+        userId: String(userId),
+        firstName,
+        lastName,
+        email,
+        phoneCountry: ship.phoneCountry || 'IN',
+        phoneNumber: phone,
+        status: 'Active',
+        addresses: [addr]
+      });
+    } else {
+      // Update basic fields and ensure address exists
+      const update = {
+        firstName: customerDoc.firstName || firstName,
+        lastName: customerDoc.lastName || lastName,
+        email: customerDoc.email || email,
+        phoneCountry: customerDoc.phoneCountry || ship.phoneCountry || 'IN',
+        phoneNumber: customerDoc.phoneNumber || phone,
+        status: 'Active'
+      };
+      // Append address if different
+      const hasSameAddr = (customerDoc.addresses || []).some(a =>
+        String(a.line1||'') === String(addr.line1) &&
+        String(a.postalCode||'') === String(addr.postalCode) &&
+        String(a.city||'') === String(addr.city)
+      );
+      const addresses = Array.from(customerDoc.addresses || []);
+      if (!hasSameAddr) addresses.unshift({ ...addr, isDefault: !addresses.length });
+      await Customer.updateOne({ _id: customerDoc._id }, { $set: { ...update, addresses } });
+    }
+
+    const order = await Order.create({
+      userId: String(userId),
+      customerId: customerDoc?._id?.toString?.(),
+      customerName: customerName || ship.name,
+      customerEmail: email,
+      shippingAddress: addr,
+      items: items.map((it) => ({
+        productId: String(it.productId || ''),
+        name: String(it.name || 'Item'),
+        price: Number(it.price || 0),
+        quantity: Number(it.quantity || 1),
+        image: it.image || '',
+      })),
+      totals: {
+        subtotal: Number(totals?.subtotal || 0),
+        gst: Number(totals?.gst || 0),
+        delivery: Number(totals?.delivery || 0),
+        total: Number(totals?.total || 0),
+      },
+      payment: {
+        method: String(payment?.method || 'unknown'),
+        status: String(payment?.status || 'Pending'),
+        transactionId: String(payment?.transactionId || ''),
+      },
+    });
+
+    res.status(201).json({ orderId: order._id.toString(), id: order._id.toString(), ...order.toObject() });
+  } catch (err) {
+    console.error('Create order error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Orders: list (admin sees all, others see own)
+app.get(base + '/orders', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
+
+    const isAdmin = String(userId) === String(ADMIN_USER_ID);
+    const filter = isAdmin ? {} : { userId: String(userId) };
+    const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
+    res.json(orders);
+  } catch (err) {
+    console.error('List orders error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Bootstrap: connect DB then start server
+const start = async () => {
+  try {
+    if (!MONGO_URI) {
+      console.warn('MONGO_URI not set. Orders and auth require MongoDB.');
+    } else {
+      await mongoose.connect(MONGO_URI, { dbName: MONGO_DB_NAME });
+      console.log(`MongoDB connected (db: ${MONGO_DB_NAME})`);
+    }
+    app.listen(PORT, () => {
+      console.log(`Dev API listening on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+start();

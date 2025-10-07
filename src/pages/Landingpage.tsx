@@ -5,6 +5,7 @@ import DiscountBanner from "../components/DiscountBanner";
 import ProductShowcase from "../components/ProductShowcase";
 import CategorySection from "../components/CategorySection";
 import Footer from "@/components/Footer";
+import Skeleton from "../components/ui/Skeleton";
 
 // Lazy-load non-critical sections (below-the-fold)
 const FeaturedProducts = lazy(() => import("../components/FeaturedProducts"));
@@ -20,16 +21,73 @@ const Landingpage: React.FC = () => {
       <DiscountBanner />
       <ProductShowcase />
       <CategorySection />
-      <Suspense fallback={<div className="px-6 py-8 text-sm text-gray-500">Loading featured products…</div>}>
+      <Suspense
+        fallback={
+          <section className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="bg-white border border-gray-100 rounded-2xl shadow-card p-4">
+                  <Skeleton className="w-full h-32 rounded-lg" />
+                  <Skeleton className="h-4 w-3/4 mt-4" />
+                  <Skeleton className="h-3 w-1/2 mt-2" />
+                  <Skeleton className="h-9 w-full mt-4 rounded-full" />
+                </div>
+              ))}
+            </div>
+          </section>
+        }
+      >
         <FeaturedProducts />
       </Suspense>
-      <Suspense fallback={<div className="px-6 py-8 text-sm text-gray-500">Loading how it works…</div>}>
+      <Suspense
+        fallback={
+          <section className="w-full max-w-7xl mx-auto px-6 py-12 animate-fade-in-up">
+            <h2 className="text-3xl font-bold text-center text-gray-800 mb-6">How It Works</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white shadow-lg rounded-2xl p-6">
+                  <Skeleton className="w-32 h-32 rounded-xl mx-auto" />
+                  <Skeleton className="h-4 w-1/2 mt-4 mx-auto" />
+                  <Skeleton className="h-3 w-3/4 mt-2 mx-auto" />
+                </div>
+              ))}
+            </div>
+          </section>
+        }
+      >
         <HowItWorks />
       </Suspense>
-      <Suspense fallback={<div className="px-6 py-8 text-sm text-gray-500">Loading testimonials…</div>}>
+      <Suspense
+        fallback={
+          <section className="w-full max-w-7xl mx-auto px-6 py-10 text-center animate-fade-in-up">
+            <h2 className="text-3xl font-bold text-gray-800 mt-2 mb-4">What Clients Say</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl shadow-lg p-6">
+                  <Skeleton className="w-20 h-20 rounded-full mx-auto" />
+                  <Skeleton className="h-4 w-3/4 mt-4 mx-auto" />
+                  <Skeleton className="h-3 w-2/3 mt-2 mx-auto" />
+                </div>
+              ))}
+            </div>
+          </section>
+        }
+      >
         <Testimonials />
       </Suspense>
-      <Suspense fallback={<div className="px-6 py-8 text-sm text-gray-500">Loading payment options…</div>}>
+      <Suspense
+        fallback={
+          <section className="w-full py-12 bg-white text-center animate-fade-in-up">
+            <h2 className="text-3xl font-bold text-gray-800 mb-8">Payment Options</h2>
+            <div className="flex flex-wrap justify-center items-center gap-8">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-24 rounded-md" />
+              ))}
+            </div>
+          </section>
+        }
+      >
         <PaymentOptions />
       </Suspense>
       <Footer />

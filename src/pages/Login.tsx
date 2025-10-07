@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 
 const Login: React.FC = () => {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, login, loginWithGoogle, loginWithMicrosoft } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as any;
   const redirectTo = location.state?.from?.pathname || "/";
@@ -34,8 +34,8 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md mt-12 mb-4">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-hero px-4 animate-fade-in-up">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg border border-gray-100 shadow-card mt-12 mb-4">
         <div className="text-center">
           <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="mx-auto w-[72px] h-[48px] object-contain" />
           <h1 className="text-2xl font-bold text-gray-800 mt-2">FlowLink</h1>
@@ -61,7 +61,7 @@ const Login: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="you@example.com"
               required
             />
@@ -73,7 +73,7 @@ const Login: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="••••••••"
               required
             />
@@ -85,7 +85,7 @@ const Login: React.FC = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 text-white bg-green-600 hover:bg-green-700 rounded-lg transition disabled:opacity-60"
+            className="w-full py-2 text-white bg-[hsl(var(--primary))] rounded-lg shadow-button hover:brightness-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/40 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
@@ -100,11 +100,41 @@ const Login: React.FC = () => {
         </div>
 
         <div className="flex space-x-4">
-          <button type="button" className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={async () => {
+              setError(null)
+              setLoading(true)
+              try {
+                await loginWithGoogle()
+                navigate(redirectTo, { replace: true })
+              } catch (e: any) {
+                setError(e?.message || "Google sign-in failed")
+              } finally {
+                setLoading(false)
+              }
+            }}
+            className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50 transition"
+          >
             <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" className="w-5 h-5 mr-2" />
             Google
           </button>
-          <button type="button" className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={async () => {
+              setError(null)
+              setLoading(true)
+              try {
+                await loginWithMicrosoft()
+                navigate(redirectTo, { replace: true })
+              } catch (e: any) {
+                setError(e?.message || "Microsoft sign-in failed")
+              } finally {
+                setLoading(false)
+              }
+            }}
+            className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50 transition"
+          >
             <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft Logo" className="w-5 h-5 mr-2" />
             Microsoft
           </button>

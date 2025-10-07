@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 
 const Signup: React.FC = () => {
-  const { register } = useAuth();
+  const { register, loginWithGoogle, loginWithMicrosoft } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState("");
@@ -35,8 +35,8 @@ const Signup: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 px-4">
-      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg shadow-md">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-hero px-4 animate-fade-in-up">
+      <div className="w-full max-w-lg p-8 space-y-6 bg-white rounded-lg border border-gray-100 shadow-card">
         <div className="text-center">
           <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="mx-auto w-[72px] h-[48px] object-contain" />
           <h1 className="text-2xl font-bold text-gray-800">Create Account</h1>
@@ -50,7 +50,7 @@ const Signup: React.FC = () => {
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="Your name"
               required
             />
@@ -62,7 +62,7 @@ const Signup: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="you@example.com"
               required
             />
@@ -74,7 +74,7 @@ const Signup: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="Create a password"
               required
               minLength={6}
@@ -87,7 +87,7 @@ const Signup: React.FC = () => {
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/40"
               placeholder="Re-enter password"
               required
               minLength={6}
@@ -96,13 +96,13 @@ const Signup: React.FC = () => {
 
           {error && <div className="text-red-600 text-sm">{error}</div>}
           <div className="flex items-center">
-            <input id="terms" type="checkbox" className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500" required />
+            <input id="terms" type="checkbox" className="w-4 h-4 accent-[hsl(var(--primary))] border-gray-300 rounded focus:ring-[hsl(var(--primary))]" required />
             <label htmlFor="terms" className="block ml-2 text-sm text-gray-900">I agree to the Terms of Service and Privacy Policy</label>
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-green-600 hover:bg-green-700 text-white py-2.5 rounded-lg transition disabled:opacity-60"
+            className="w-full bg-[hsl(var(--primary))] text-white py-2.5 rounded-lg shadow-button hover:brightness-95 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/40 disabled:opacity-60 disabled:cursor-not-allowed active:scale-[0.99]"
           >
             {loading ? "Creating account..." : "Sign Up"}
           </button>
@@ -116,11 +116,29 @@ const Signup: React.FC = () => {
         </div>
 
         <div className="flex space-x-4">
-          <button type="button" className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await loginWithGoogle();
+                navigate("/", { replace: true });
+              } catch (e) {}
+            }}
+            className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50 transition"
+          >
             <img src="https://upload.wikimedia.org/wikipedia/commons/c/c1/Google_%22G%22_logo.svg" alt="Google Logo" className="w-5 h-5 mr-2" />
             Google
           </button>
-          <button type="button" className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50">
+          <button
+            type="button"
+            onClick={async () => {
+              try {
+                await loginWithMicrosoft();
+                navigate("/", { replace: true });
+              } catch (e) {}
+            }}
+            className="flex items-center justify-center w-full py-2 border rounded-lg hover:bg-gray-50 transition"
+          >
             <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" alt="Microsoft Logo" className="w-5 h-5 mr-2" />
             Microsoft
           </button>

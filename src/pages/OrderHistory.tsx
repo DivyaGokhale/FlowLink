@@ -3,6 +3,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
+import Skeleton from "../components/ui/Skeleton";
 
 interface OrderItem {
   productId: string;
@@ -32,7 +33,7 @@ const OrderHistory: React.FC = () => {
       setLoading(true);
       setError(null);
       const ADMIN_ID = (import.meta as any).env?.VITE_ADMIN_USER_ID;
-      const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5000/api";
+      const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
       const effectiveUserId = ADMIN_ID || user?.id || "";
 
       try {
@@ -94,10 +95,18 @@ const OrderHistory: React.FC = () => {
   return (
     <>
       <Header />
-      <main className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <main className="min-h-screen bg-gray-50 p-4 md:p-6 animate-fade-in-up">
         <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 md:p-6">
           {loading && (
-            <div className="mb-4 text-sm text-gray-600">Loading orders…</div>
+            <div className="mb-4 space-y-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="border rounded-lg p-4">
+                  <Skeleton className="h-5 w-1/3 mb-2" />
+                  <Skeleton className="h-4 w-1/2 mb-2" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
           )}
           {error && (
             <div className="mb-4 text-sm text-red-600">{error}</div>
@@ -113,7 +122,7 @@ const OrderHistory: React.FC = () => {
               </button>
               {orders.length > 0 && (
                 <button
-                  className="px-3 py-2 text-sm rounded border text-red-600 border-red-300"
+                  className="px-3 py-2 text-sm rounded border text-red-600 border-red-300 hover:bg-red-50"
                   onClick={clearHistory}
                 >
                   Clear History
@@ -127,7 +136,7 @@ const OrderHistory: React.FC = () => {
           ) : (
             <ul className="space-y-4">
               {orders.map((order) => (
-                <li key={order.id} className="border rounded-lg p-4">
+                <li key={order.id} className="bg-white border rounded-lg p-4 shadow-sm transition hover:shadow-lg">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-sm text-gray-500">Order ID</p>
