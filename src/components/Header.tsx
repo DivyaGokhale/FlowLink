@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
+import Skeleton from "./ui/Skeleton";
 
 // Icons
 const LocationIcon = () => (
@@ -54,6 +55,9 @@ const Header = () => {
   const navigate = useNavigate();
   const [cartCount, setCartCount] = useState(0);
   const { isAuthenticated, logout } = useAuth();
+  const { shop } = useParams<{ shop?: string }>();
+  const [shopInfo, setShopInfo] = useState<any>(null);
+  const [shopLoading, setShopLoading] = useState(false);
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -66,18 +70,40 @@ const Header = () => {
     return () => window.removeEventListener("storage", updateCartCount);
   }, []);
 
+  // Load shop branding if slug present
+  useEffect(() => {
+    if (!shop) { setShopInfo(null); return; }
+    const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
+    let ignore = false;
+    setShopLoading(true);
+    fetch(`${baseUrl}/shops/${encodeURIComponent(shop)}`)
+      .then(async (res) => { if (!ignore && res.ok) { const data = await res.json(); setShopInfo(data); } })
+      .catch(() => {})
+      .finally(() => { if (!ignore) setShopLoading(false); });
+    return () => { ignore = true; };
+  }, [shop]);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm">
       <div className="max-w-7xl px-4 sm:px-6 py-3">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           {/* Logo */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(shop ? `/${shop}` : "/")}
             aria-label="Go to home"
             className="flex items-center text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
           >
-            <img src="/assets/flowlink-logo-black.png" alt="FlowLink Logo" className="w-[70px] h-[40px] object-contain" />
-            <span className="font-mate text-black text-bold text-[20px] font-medium">FlowLink</span>
+            <img
+              src={shopInfo?.logo || "/assets/flowlink-logo-black.png"}
+              alt={(shopInfo?.name || 'FlowLink') + ' Logo'}
+              className="w-[70px] h-[40px] object-contain"
+              onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (t.src !== "/assets/flowlink-logo-black.png") t.src = "/assets/flowlink-logo-black.png"; }}
+            />
+            {shopLoading ? (
+              <div className="ml-2 w-28"><Skeleton className="h-6 w-24 rounded" /></div>
+            ) : (
+              <span className="ml-2 font-mate text-black text-bold text-[20px] font-medium">{shopInfo?.name || 'FlowLink'}</span>
+            )}
           </button>
 
           {/* Location */}
@@ -129,7 +155,7 @@ const Header = () => {
             )}
 
             <button
-              onClick={() => navigate("/addToCart")}
+              onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
               aria-label={`Open cart${cartCount > 0 ? ` with ${cartCount} items` : ''}`}
               className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
             >
@@ -143,7 +169,7 @@ const Header = () => {
             </button>
 
             <button
-              onClick={() => navigate("/orders")}
+              onClick={() => navigate(shop ? `/${shop}/orders` : "/orders")}
               aria-label="View order history"
               className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
             >

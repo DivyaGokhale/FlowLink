@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Product {
   id: number;
@@ -13,6 +13,7 @@ interface Product {
 
 const ReviewPage: React.FC = () => {
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
   const [cartItems, setCartItems] = useState<Product[]>([]);
   const [paymentDetails, setPaymentDetails] = useState<any>({});
   const [totals, setTotals] = useState({ subtotal: 0, gst: 0, delivery: 0, total: 0 });
@@ -170,7 +171,7 @@ const ReviewPage: React.FC = () => {
                 </button>
               </div>
               <div className="flex gap-3">
-                <button onClick={() => navigate("/")} className="px-4 py-2 bg-[hsl(var(--primary))] text-white rounded-full hover:brightness-95 shadow-button transition">
+                <button onClick={() => navigate(shop ? `/${shop}` : "/")} className="px-4 py-2 bg-[hsl(var(--primary))] text-white rounded-full hover:brightness-95 shadow-button transition">
                   Continue Browsing
                 </button>
               </div>

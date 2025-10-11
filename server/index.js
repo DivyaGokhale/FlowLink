@@ -27,7 +27,8 @@ const PORT = process.env.PORT || 5001;
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID || 'HS9Yf7yCJ3Zc6MSIFDa3oOlN1Wl1';
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://FlowLink:FlowLink8550@flowlink.wlohsvp.mongodb.net/?retryWrites=true&w=majority&appName=FlowLink';
-const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'test';
+// Use the same default DB name as the admin server for local dev parity
+const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'flowlink';
 
 const app = express();
 app.use(express.json());
@@ -85,11 +86,40 @@ function sign(user) {
 // Mongoose models
 const userSchema = new mongoose.Schema({
   id: { type: String, index: true }, // uuid v4 for app-facing id
+  sellerId: { type: String, index: true }, // maps to Shop.userId
   name: { type: String, default: '' },
-  email: { type: String, required: true, unique: true },
+  email: { type: String, required: true, index: true },
   passwordHash: { type: String, required: true },
   createdAt: { type: Date, default: () => new Date() },
 }, { timestamps: true });
+// Unique per shop
+userSchema.index({ sellerId: 1, email: 1 }, { unique: true });
+
+// Offers (visible to customer view)
+app.get(base + '/offers', async (req, res) => {
+  try {
+    const { shop } = req.query
+    const headerUserId = (req.header('x-user-id') || '').trim()
+    let sellerId = ''
+    if (shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
+      if (!s) return res.json([])
+      sellerId = String(s.userId)
+    } else if (headerUserId) {
+      sellerId = String(headerUserId)
+    } else {
+      return res.status(400).json({ error: 'shop or x-user-id required' })
+    }
+    const now = new Date()
+    const filter = { userId: sellerId, status: 'Active', $or: [ { startsAt: { $exists: false } }, { startsAt: { $lte: now } } ] }
+    const docs = await mongoose.model('Offer').find(filter).sort({ createdAt: -1 }).lean()
+    const active = docs.filter(o => !o.endsAt || new Date(o.endsAt).getTime() >= now.getTime())
+    res.json(active)
+  } catch (err) {
+    console.error('List offers error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
 
 const orderItemSchema = new mongoose.Schema({
   productId: { type: String, required: true },
@@ -138,6 +168,9 @@ let User;
 let Order;
 let Customer;
 let Product;
+let Shop;
+let Discount;
+let Offer;
 try {
   User = mongoose.model('User');
 } catch { User = mongoose.model('User', userSchema); }
@@ -180,9 +213,78 @@ const productSchema = new mongoose.Schema({
   images: [String]
 }, { timestamps: true });
 
+// Ensure Product model is registered (fixes undefined model when listing products)
 try {
   Product = mongoose.model('Product');
 } catch { Product = mongoose.model('Product', productSchema); }
+
+// Discount model (read discounts created in admin service)
+const discountSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  method: { type: String, enum: ['code','auto'], default: 'code' },
+  code: String,
+  type: { type: String, enum: ['percentage','fixed'], default: 'percentage' },
+  amount: { type: Number, default: 0 },
+  status: { type: String, default: 'Active' },
+  startsAt: Date,
+  endsAt: Date,
+  productIds: { type: [String], default: undefined }
+}, { timestamps: true })
+
+try { Discount = mongoose.model('Discount') } catch { Discount = mongoose.model('Discount', discountSchema) }
+
+// Offer model (read offers created in admin service)
+const offerSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  title: { type: String, required: true },
+  description: String,
+  bannerUrl: String,
+  status: { type: String, default: 'Active' },
+  startsAt: Date,
+  endsAt: Date,
+  productIds: { type: [String], default: undefined }
+}, { timestamps: true })
+
+try { Offer = mongoose.model('Offer') } catch { Offer = mongoose.model('Offer', offerSchema) }
+
+function isDiscountActive(d) {
+  if (!d) return false
+  if (String(d.status || '') !== 'Active') return false
+  const now = Date.now()
+  if (d.startsAt && new Date(d.startsAt).getTime() > now) return false
+  if (d.endsAt && new Date(d.endsAt).getTime() < now) return false
+  return true
+}
+
+function computeDiscountedPrice(price, disc) {
+  const n = Number(price || 0)
+  const amt = Number(disc?.amount || 0)
+  if (!disc || !isFinite(n) || !isFinite(amt)) return null
+  if (disc.type === 'percentage') {
+    const p = Math.max(0, n - (n * (amt / 100)))
+    return Math.round(p * 100) / 100
+  }
+  const p = Math.max(0, n - amt)
+  return Math.round(p * 100) / 100
+}
+
+// Shop model
+const shopSchema = new mongoose.Schema({
+  userId: { type: String, index: true },
+  slug: { type: String, required: true },
+  name: String,
+  description: String,
+  logo: String,
+  cover: String,
+  status: { type: String, default: 'Active' },
+  createdAt: { type: Date, default: () => new Date() },
+}, { timestamps: true });
+// Ensure a user cannot create duplicate slugs; allow same slug across different users
+shopSchema.index({ userId: 1, slug: 1 }, { unique: true });
+
+try {
+  Shop = mongoose.model('Shop');
+} catch { Shop = mongoose.model('Shop', shopSchema); }
 
 // Routes base
 const base = '/api';
@@ -190,17 +292,64 @@ const base = '/api';
 // Health
 app.get(base + '/health', (req, res) => res.json({ ok: true }));
 
+// Shops
+app.get(base + '/shops/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').toLowerCase();
+    if (!slug) return res.status(400).json({ error: 'slug required' });
+    const headerUserId = (req.header('x-user-id') || '').trim();
+    const query = headerUserId ? { userId: headerUserId, slug } : { slug };
+    const shop = await Shop.findOne(query).lean();
+    if (!shop) return res.status(404).json({ error: 'Not found' });
+    res.json(shop);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Upsert shop mapping (admin creates/updates shop slug -> userId)
+app.post(base + '/shops', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const slug = String(body.slug || '').trim().toLowerCase();
+    const userId = String(body.userId || '').trim();
+    if (!slug || !userId) return res.status(400).json({ error: 'slug and userId required' });
+    const update = {
+      userId,
+      slug,
+      name: String(body.name || ''),
+      description: String(body.description || ''),
+      logo: String(body.logo || ''),
+      cover: String(body.cover || ''),
+      status: String(body.status || 'Active')
+    };
+    const opts = { upsert: true, new: true, setDefaultsOnInsert: true };
+    const doc = await Shop.findOneAndUpdate({ userId, slug }, { $set: update }, opts);
+    res.status(201).json(doc.toObject());
+  } catch (err) {
+    console.error('Upsert shop error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Auth: Register
 app.post(base + '/auth/register', async (req, res) => {
   try {
-    const { name, email, password } = req.body || {};
+    const { name, email, password, shop } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+    // Determine sellerId from header or shop slug
+    let sellerId = (req.header('x-user-id') || '').trim()
+    if (!sellerId && shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
+      if (s) sellerId = String(s.userId)
+    }
+    if (!sellerId) return res.status(400).json({ error: 'shop or x-user-id required' })
 
-    const existing = await User.findOne({ email: { $regex: `^${String(email)}$`, $options: 'i' } }).lean();
+    const existing = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } }).lean();
     if (existing) return res.status(409).json({ error: 'Email already registered' });
 
     const hash = await bcrypt.hash(password, 10);
-    const doc = await User.create({ id: uuidv4(), name: name || '', email, passwordHash: hash });
+    const doc = await User.create({ id: uuidv4(), sellerId, name: name || '', email, passwordHash: hash });
     const user = { id: doc.id, name: doc.name, email: doc.email };
     const token = sign(user);
     res.json({ token, user });
@@ -213,8 +362,14 @@ app.post(base + '/auth/register', async (req, res) => {
 // Auth: Login
 app.post(base + '/auth/login', async (req, res) => {
   try {
-    const { email, password } = req.body || {};
-    const doc = await User.findOne({ email: { $regex: `^${String(email)}$`, $options: 'i' } });
+    const { email, password, shop } = req.body || {};
+    let sellerId = (req.header('x-user-id') || '').trim()
+    if (!sellerId && shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
+      if (s) sellerId = String(s.userId)
+    }
+    if (!sellerId) return res.status(400).json({ error: 'shop or x-user-id required' })
+    const doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
     if (!doc) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, doc.passwordHash);
     if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
@@ -230,11 +385,48 @@ app.post(base + '/auth/login', async (req, res) => {
 // Products
 app.get(base + '/products', async (req, res) => {
   try {
-    // Show products created by the admin user so customers see the real catalog
-    const sellerId = String(ADMIN_USER_ID || '');
-    const filter = sellerId ? { userId: sellerId } : {};
+    const { shop } = req.query;
+    const headerUserId = (req.header('x-user-id') || '').trim();
+    let sellerId = '';
+    if (shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean();
+      if (!s) return res.json([]);
+      sellerId = String(s.userId);
+    } else if (headerUserId) {
+      sellerId = String(headerUserId);
+    } else {
+      return res.status(400).json({ error: 'shop or x-user-id required' });
+    }
+    const filter = { userId: sellerId };
     const docs = await Product.find(filter).sort({ createdAt: -1 }).lean();
-    res.json(docs);
+
+    // Apply automatic discounts (best one) to products
+    let discounts = []
+    try {
+      discounts = await Discount.find({ userId: sellerId }).lean()
+    } catch {}
+    const activeAutos = (discounts || []).filter(d => isDiscountActive(d) && String(d.method) === 'auto')
+
+    const out = docs.map(p => {
+      let best = null
+      let bestPrice = null
+      for (const d of activeAutos) {
+        // if productIds specified, apply only to those
+        if (Array.isArray(d.productIds) && d.productIds.length) {
+          const pid = String(p._id || '')
+          if (!d.productIds.some(x => String(x) === pid)) continue
+        }
+        const newPrice = computeDiscountedPrice(p.price, d)
+        if (newPrice == null) continue
+        if (bestPrice == null || newPrice < bestPrice) { best = d; bestPrice = newPrice }
+      }
+      if (best && bestPrice != null) {
+        return { ...p, discountedPrice: bestPrice, discount: { id: best._id?.toString?.(), type: best.type, amount: best.amount, method: best.method } }
+      }
+      return p
+    })
+
+    res.json(out);
   } catch (err) {
     console.error('List products error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -244,12 +436,41 @@ app.get(base + '/products', async (req, res) => {
 // Product details
 app.get(base + '/products/:id', async (req, res) => {
   try {
-    const sellerId = String(ADMIN_USER_ID || '');
+    const headerUserId = (req.header('x-user-id') || '').trim();
+    let sellerId = '';
     const { id } = req.params;
-    const filter = sellerId ? { _id: new mongoose.Types.ObjectId(id), userId: sellerId } : { _id: new mongoose.Types.ObjectId(id) };
+    const { shop } = req.query;
+    if (shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean();
+      if (!s) return res.status(404).json({ error: 'Shop not found' });
+      sellerId = String(s.userId);
+    } else if (headerUserId) {
+      sellerId = String(headerUserId);
+    } else {
+      return res.status(400).json({ error: 'shop or x-user-id required' });
+    }
+    const filter = { _id: new mongoose.Types.ObjectId(id), userId: sellerId };
     const doc = await Product.findOne(filter).lean();
     if (!doc) return res.status(404).json({ error: 'Not found' });
-    res.json(doc);
+
+    // Attach automatic discount preview
+    let discounts = []
+    try { discounts = await Discount.find({ userId: sellerId }).lean() } catch {}
+    const activeAutos = (discounts || []).filter(d => isDiscountActive(d) && String(d.method) === 'auto')
+    let best = null, bestPrice = null
+    for (const d of activeAutos) {
+      if (Array.isArray(d.productIds) && d.productIds.length) {
+        const pid = String(doc._id || '')
+        if (!d.productIds.some(x => String(x) === pid)) continue
+      }
+      const newPrice = computeDiscountedPrice(doc.price, d)
+      if (newPrice == null) continue
+      if (bestPrice == null || newPrice < bestPrice) { best = d; bestPrice = newPrice }
+    }
+    const payload = best && bestPrice != null
+      ? { ...doc, discountedPrice: bestPrice, discount: { id: best._id?.toString?.(), type: best.type, amount: best.amount, method: best.method } }
+      : doc
+    res.json(payload);
   } catch (err) {
     res.status(400).json({ error: 'Bad id' });
   }
@@ -389,7 +610,8 @@ app.get(base + '/orders', async (req, res) => {
     console.error('List orders error:', err);
     res.status(500).json({ error: 'Server error' });
   }
-});
+})
+;
 
 // Bootstrap: connect DB then start server
 const start = async () => {

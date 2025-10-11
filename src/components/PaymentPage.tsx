@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useAddress } from "./AddressContext";
 import Header from "../components/Header";
@@ -17,6 +17,7 @@ interface Product {
 
 const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
   const { token, user } = useAuth();
   const { selectedAddress, addresses } = useAddress();
   const [method, setMethod] = useState("upi");
@@ -88,9 +89,19 @@ const PaymentPage: React.FC = () => {
     try {
       const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
       const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
-      const effectiveUserId = ADMIN_ID || user?.id || "";
+      // Resolve sellerId: if shop slug present, fetch mapping; else fallback to env/admin user
+      let effectiveUserId = ADMIN_ID || user?.id || "";
+      if (shop) {
+        try {
+          const sres = await fetch(`${API_BASE}/shops/${encodeURIComponent(shop)}`);
+          if (sres.ok) {
+            const sdata = await sres.json();
+            if (sdata?.userId) effectiveUserId = String(sdata.userId);
+          }
+        } catch {}
+      }
       if (!effectiveUserId) {
-        alert("Missing user ID. Please log in or set VITE_ADMIN_USER_ID.");
+        alert("Missing shop mapping or user ID. Please configure your shop.");
         return;
       }
 
@@ -163,13 +174,13 @@ const PaymentPage: React.FC = () => {
       return;
     }
 
-    navigate("/review");
+    navigate(shop ? `/${shop}/review` : "/review");
   };
 
   return (
     <>
     <Header />
-    <BackButton confirmOnPayment fallbackPath="/addToCart" />
+    <BackButton confirmOnPayment fallbackPath={shop ? `/${shop}/addToCart` : "/addToCart"} />
     <div className="bg-gray-50 min-h-screen p-6 flex flex-col items-center animate-fade-in-up">
       <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Order Summary */}
@@ -237,7 +248,7 @@ const PaymentPage: React.FC = () => {
               <div className="text-center py-6">
                 <p className="text-gray-500 text-sm mb-3">No address selected</p>
                 <button
-                  onClick={() => navigate("/addToCart")}
+                  onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
                   className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
                 >
                   Select Address
@@ -418,7 +429,7 @@ const PaymentPage: React.FC = () => {
           {/* Buttons */}
           <div className="flex justify-between mt-6 gap-3">
             <button
-              onClick={() => navigate("/addToCart")}
+              onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
               className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/30 active:scale-[0.99]"
             >
               Back
