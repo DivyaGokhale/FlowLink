@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 import Skeleton from "../components/ui/Skeleton";
 
@@ -27,6 +27,7 @@ const OrderHistory: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { token, user } = useAuth();
+  const { shop } = useParams<{ shop?: string }>();
 
   useEffect(() => {
     const load = async () => {
@@ -34,7 +35,17 @@ const OrderHistory: React.FC = () => {
       setError(null);
       const ADMIN_ID = (import.meta as any).env?.VITE_ADMIN_USER_ID;
       const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
-      const effectiveUserId = ADMIN_ID || user?.id || "";
+      let effectiveUserId = ADMIN_ID || user?.id || "";
+      // If a shop slug exists, resolve mapped owner
+      if (shop) {
+        try {
+          const sres = await fetch(`${API_BASE}/shops/${encodeURIComponent(shop)}`);
+          if (sres.ok) {
+            const sdata = await sres.json();
+            if (sdata?.userId) effectiveUserId = String(sdata.userId);
+          }
+        } catch {}
+      }
 
       try {
         if (!effectiveUserId) throw new Error("Missing user ID");
@@ -116,7 +127,7 @@ const OrderHistory: React.FC = () => {
             <div className="flex gap-2">
               <button
                 className="px-3 py-2 text-sm rounded border"
-                onClick={() => navigate("/")}
+                onClick={() => navigate(shop ? `/${shop}` : "/")}
               >
                 Continue Shopping
               </button>

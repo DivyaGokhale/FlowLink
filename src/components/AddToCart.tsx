@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import AddressSelector from "../components/AddressSelector";
@@ -18,6 +18,7 @@ interface Product {
 
 function AddToCart() {
   const location = useLocation();
+  const { shop } = useParams<{ shop?: string }>();
   const product = location.state?.product as Product | undefined;
 
   // ✅ Add product to localStorage cart if passed from ProductDetails
@@ -47,7 +48,7 @@ function AddToCart() {
       <Header />
 
       <main className="flex-grow w-full max-w-7xl mx-auto p-4 md:p-6">
-        <BackButton />
+        <BackButton fallbackPath={shop ? `/${shop}` : "/"} />
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Left side - Delivery Address */}
           <div className="lg:col-span-2">

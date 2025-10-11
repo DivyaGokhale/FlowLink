@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Category {
   id: number;
@@ -78,6 +78,7 @@ const categories: Category[] = [
 
 const CategorySection: React.FC = () => {
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
   return (
     <section className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Explore by Categories</h2>
@@ -85,7 +86,7 @@ const CategorySection: React.FC = () => {
         {categories.map((cat) => (
           <div
             key={cat.id}
-            onClick={() => navigate(`/shop?category=${encodeURIComponent(cat.name)}`)}
+            onClick={() => navigate(`${shop ? `/${shop}` : ""}/shop?category=${encodeURIComponent(cat.name)}`)}
             className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1.5 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 animate-scale-in"
           >
             <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-secondary">

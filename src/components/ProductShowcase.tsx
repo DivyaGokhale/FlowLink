@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
@@ -20,13 +20,15 @@ const ProductShowcase: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast(); // ✅ get toast function
   const { token, user } = useAuth();
+  const { shop } = useParams<{ shop?: string }>();
 
   useEffect(() => {
     const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${baseUrl}/products`);
+        const qs = shop ? `?shop=${encodeURIComponent(shop)}` : "";
+        const res = await fetch(`${baseUrl}/products${qs}`);
         const data = await res.json();
         const mapped: Product[] = (data || []).map((d: any) => ({
           _id: String(d._id || d.id),
@@ -46,7 +48,7 @@ const ProductShowcase: React.FC = () => {
       }
     };
     load();
-  }, [token, user?.id]);
+  }, [token, user?.id, shop]);
 
   const addToCart = (product: Product) => {
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
@@ -97,7 +99,7 @@ const ProductShowcase: React.FC = () => {
                 className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 p-4 flex flex-col"
               >
                 {/* Product Image */}
-                <Link to={`/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 rounded-lg">
+                <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 rounded-lg">
                   <div className="aspect-square w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
                     <img
                       src={item.image}
@@ -126,7 +128,7 @@ const ProductShowcase: React.FC = () => {
                 </div>
                 {/* Actions */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link to={`/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
+                  <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
                     View
                   </Link>
                   <button onClick={() => addToCart(item)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">

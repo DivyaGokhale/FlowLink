@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 // Define the shape of a single product object
 interface Product {
@@ -16,6 +16,7 @@ interface RelatedProductsProps {
 }
 
 const RelatedProducts = ({ products }: RelatedProductsProps) => {
+  const { shop } = useParams<{ shop?: string }>();
   return (
     <section className="w-full px-6 py-10">
       <h2 className="text-2xl font-semibold mb-6">You may also like</h2>
@@ -25,7 +26,7 @@ const RelatedProducts = ({ products }: RelatedProductsProps) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
           {products.map((item) => (
             <Link
-              to={`/product/${item._id}`}
+              to={`${shop ? `/${shop}` : ""}/product/${item._id}`}
               key={item._id}
               className="block border rounded-lg shadow-sm p-4 hover:shadow-md transition relative text-left"
             >

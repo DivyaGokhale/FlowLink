@@ -1,8 +1,23 @@
-import React from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 
 const DiscountBanner = () => {
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
+  const [shopInfo, setShopInfo] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!shop) { setShopInfo(null); return; }
+    const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
+    let ignore = false;
+    setLoading(true);
+    fetch(`${baseUrl}/shops/${encodeURIComponent(shop)}`)
+      .then(async (res) => { if (!ignore && res.ok) { const data = await res.json(); setShopInfo(data); } })
+      .catch(() => {})
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
+  }, [shop]);
   return (
   <section className="relative w-full overflow-hidden py-12 bg-gradient-hero">
     {/* Decorative blobs */}
@@ -13,12 +28,19 @@ const DiscountBanner = () => {
       {/* Left section: Text & CTA */}
       <div className="flex-1 min-w-0 text-left animate-fade-in-up">
         <h2 className="text-3xl sm:text-4xl font-semibold mb-3 text-gray-900">
-          Get <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">10% OFF</span> on your first order
+          {shop ? (
+            <>
+              Welcome to {loading ? '...' : (shopInfo?.name || shop)} —
+              <span className="ml-2 bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">10% OFF</span> your first order
+            </>
+          ) : (
+            <>Get <span className="bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">10% OFF</span> on your first order</>
+          )}
         </h2>
         <p className="text-base sm:text-lg text-gray-600 mb-6">
-          Fresh groceries delivered fast. Hand-picked quality at the best prices.
+          {shop ? `Shop from ${loading ? 'your favorite store' : (shopInfo?.name || shop)} with fast delivery and great prices.` : 'Fresh groceries delivered fast. Hand-picked quality at the best prices.'}
         </p>
-        <button onClick={() => navigate('/shop')} className="inline-flex items-center justify-center bg-[hsl(var(--primary))] hover:brightness-95 text-white text-sm sm:text-base font-medium rounded-full px-6 sm:px-8 py-3 shadow-button transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 active:scale-[0.99]">
+        <button onClick={() => navigate(shop ? `/${shop}/shop` : '/shop')} className="inline-flex items-center justify-center bg-[hsl(var(--primary))] hover:brightness-95 text-white text-sm sm:text-base font-medium rounded-full px-6 sm:px-8 py-3 shadow-button transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 active:scale-[0.99]">
           Shop Now
           <svg className="ml-2" width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12h14m0 0-6-6m6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </button>
@@ -27,9 +49,10 @@ const DiscountBanner = () => {
       {/* Right section: Promo image */}
       <div className="w-full md:w-auto md:basis-[420px] md:shrink-0 flex justify-start">
         <img
-          src="/assets/teatime.png"
-          alt="Tea Time Bakes Promo"
-          className="w-full max-w-xl sm:max-w-3xl h-64 sm:h-48 rounded-2xl shadow-card animate-float"
+          src={shopInfo?.cover || "/assets/teatime.png"}
+          alt={(shopInfo?.name ? `${shopInfo.name} Cover` : "Promo Banner")}
+          className="w-full max-w-xl sm:max-w-3xl h-64 sm:h-48 rounded-2xl shadow-card animate-float object-cover"
+          onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (t.src !== "/assets/teatime.png") t.src = "/assets/teatime.png"; }}
         />
       </div>
     </div>

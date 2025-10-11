@@ -3,7 +3,7 @@ import Header from "../components/Header";
 import Footer from "../components/Footer";
 import Skeleton from "../components/ui/Skeleton";
 import { useToast } from "../components/ToastContext";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 // Product shape coming from admin API (flowlink/server)
 interface ProductDoc {
@@ -32,6 +32,7 @@ const Shop: React.FC = () => {
   const [minPrice, setMinPrice] = useState<number | undefined>(undefined);
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [params] = useSearchParams();
+  const { shop } = useParams<{ shop?: string }>();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
@@ -47,7 +48,8 @@ const Shop: React.FC = () => {
     const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${baseUrl}/products`);
+        const qs = shop ? `?shop=${encodeURIComponent(shop)}` : "";
+        const res = await fetch(`${baseUrl}/products${qs}`);
         const data: ProductDoc[] = await res.json();
         if (ignore) return;
         setProducts(Array.isArray(data) ? data : []);
@@ -59,7 +61,7 @@ const Shop: React.FC = () => {
     };
     load();
     return () => { ignore = true; };
-  }, [baseUrl]);
+  }, [baseUrl, shop]);
 
   const priceBounds = useMemo(() => {
     const prices = products.map(p => Number(p.price || 0)).filter(n => !Number.isNaN(n));
@@ -262,7 +264,7 @@ const Shop: React.FC = () => {
                             )}
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
-                            <button onClick={() => navigate(`/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
+                            <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
                             <button onClick={() => addToCart(p)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
                           </div>
                         </div>

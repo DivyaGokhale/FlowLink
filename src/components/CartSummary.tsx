@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface CartItem {
   _id: string;
@@ -14,6 +14,7 @@ const CartSummary: React.FC = () => {
   const [coupon, setCoupon] = useState("");
   const [discount, setDiscount] = useState(0);
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
 
   const selectedAddress = JSON.parse(localStorage.getItem("selectedAddress") || "{}");
   const distance = selectedAddress?.distance || 3.0;
@@ -176,7 +177,7 @@ const CartSummary: React.FC = () => {
           {/* Actions */}
           <div className="flex justify-between gap-4 mt-6">
             <button
-              onClick={() => navigate("/payment")}
+              onClick={() => navigate(shop ? `/${shop}/payment` : "/payment")}
               className="bg-green-600 text-white flex-1 py-3 rounded-lg font-medium hover:bg-green-700"
             >
               Proceed to Payment

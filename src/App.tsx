@@ -36,6 +36,63 @@ function App() {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                {/* Per-shop routes */}
+                <Route
+                  path="/:shop"
+                  element={
+                    <ProtectedRoute>
+                      <Landingpage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/shop"
+                  element={
+                    <ProtectedRoute>
+                      <Shop />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/product/:id"
+                  element={
+                    <ProtectedRoute>
+                      <ProductDetails />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/payment"
+                  element={
+                    <ProtectedRoute>
+                      <PaymentPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/addToCart"
+                  element={
+                    <ProtectedRoute>
+                      <AddToCart />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/review"
+                  element={
+                    <ProtectedRoute>
+                      <ReviewPage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/:shop/orders"
+                  element={
+                    <ProtectedRoute>
+                      <OrderHistory />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/orders"
                   element={

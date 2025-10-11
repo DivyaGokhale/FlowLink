@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
@@ -21,6 +21,7 @@ const FeaturedProducts: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast(); // ✅ get toast function
   const { user } = useAuth();
+  const { shop } = useParams<{ shop?: string }>();
 
   useEffect(() => {
     // Load from local public/products.json
@@ -91,7 +92,7 @@ const FeaturedProducts: React.FC = () => {
               className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 flex flex-col"
             >
               {/* Product Image */}
-              <Link to={`/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 overflow-hidden">
+              <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 overflow-hidden">
                 <div className="aspect-square w-full rounded-lg bg-gray-50 flex items-center justify-center">
                   <img
                     src={product.image}
@@ -121,7 +122,7 @@ const FeaturedProducts: React.FC = () => {
               </div>
               {/* Actions */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link to={`/product/${product._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
+                <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
                   View
                 </Link>
                 <button

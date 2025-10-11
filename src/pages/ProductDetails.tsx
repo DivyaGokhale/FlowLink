@@ -17,7 +17,7 @@ interface Product {
 }
 
 const ProductDetails: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id, shop } = useParams<{ id: string, shop?: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -46,8 +46,8 @@ const ProductDetails: React.FC = () => {
       // Try API first (details + list for recommendations)
       try {
         const [detailRes, listRes] = await Promise.all([
-          fetch(`${baseUrl}/products/${id}`),
-          fetch(`${baseUrl}/products`)
+          fetch(`${baseUrl}/products/${id}${shop ? `?shop=${encodeURIComponent(shop)}` : ""}`),
+          fetch(`${baseUrl}/products${shop ? `?shop=${encodeURIComponent(shop)}` : ""}`)
         ])
         if (detailRes.ok) {
           const d = await detailRes.json();
@@ -81,7 +81,7 @@ const ProductDetails: React.FC = () => {
       setLoading(false)
     };
     load();
-  }, [id]);
+  }, [id, shop]);
 
   const addToCart = () => {
     if (!product) return;
@@ -108,7 +108,7 @@ const ProductDetails: React.FC = () => {
     return (
       <>
         <Header />
-        <BackButton />
+        <BackButton fallbackPath={shop ? `/${shop}/shop` : "/shop"} />
         <div className="max-w-6xl mx-auto px-6 py-10 animate-fade-in-up">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
             <div className="flex justify-center">
@@ -138,7 +138,7 @@ const ProductDetails: React.FC = () => {
   return (
     <>
       <Header />
-      <BackButton />
+      <BackButton fallbackPath={shop ? `/${shop}/shop` : "/shop"} />
       <div className="max-w-6xl mx-auto px-6 py-10 animate-fade-in-up">
         {/* Product Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -175,7 +175,7 @@ const ProductDetails: React.FC = () => {
                 Add to Cart
               </button>
               <button
-                onClick={() => navigate("/addToCart")}
+                onClick={() => navigate(`${shop ? `/${shop}` : ""}/addToCart`)}
                 className="bg-emerald-700 text-white px-6 py-2 rounded-lg hover:brightness-105 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 active:scale-[0.99]"
               >
                 View Cart
@@ -195,7 +195,7 @@ const ProductDetails: React.FC = () => {
                 <div
                   key={item._id}
                   className="cursor-pointer bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 shadow-card transition-transform duration-300 hover:shadow-lg hover:-translate-y-1.5"
-                  onClick={() => navigate(`/product/${item._id}`)}
+                  onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${item._id}`)}
                 >
                   <img
                     src={item.image}
