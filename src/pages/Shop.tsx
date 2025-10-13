@@ -4,6 +4,7 @@ import Footer from "../components/Footer";
 import Skeleton from "../components/ui/Skeleton";
 import { useToast } from "../components/ToastContext";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useAuth } from "../components/AuthContext";
 
 // Product shape coming from admin API (flowlink/server)
 interface ProductDoc {
@@ -15,6 +16,7 @@ interface ProductDoc {
   category?: string;
   images?: string[];
   description?: string;
+  discountedPrice?: number;
 }
 
 const currency = (n: number | string | undefined) => {
@@ -35,6 +37,7 @@ const Shop: React.FC = () => {
   const { shop } = useParams<{ shop?: string }>();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const { vipEligible } = useAuth();
 
   const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -133,9 +136,12 @@ const Shop: React.FC = () => {
     setSelectedCats(next);
   };
 
+  const VIP_OFF = 15; // rupees off for VIP (logged-in customers)
   const addToCart = (p: ProductDoc) => {
     const image = Array.isArray(p.images) && p.images.length ? p.images[0] : "";
-    const item = { _id: String(p._id), name: p.title || "Untitled", price: Number(p.price || 0), image, quantity: 1 } as any;
+    const base = Number((p as any).discountedPrice ?? p.price ?? 0);
+    const vipPrice = vipEligible ? Math.max(0, base - VIP_OFF) : base;
+    const item = { _id: String(p._id), name: p.title || "Untitled", price: vipPrice, image, quantity: 1 } as any;
     const existing = JSON.parse(localStorage.getItem("cart") || "[]");
     const updated = existing.some((it: any) => it._id === item._id)
       ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
@@ -246,7 +252,11 @@ const Shop: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                     {visible.map((p) => {
                       const img = Array.isArray(p.images) && p.images.length ? p.images[0] : "/favicon.ico";
-                      const discount = p.mrp && p.price && p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 0;
+                      const base = Number((p as any).discountedPrice ?? p.price ?? 0);
+                      const vipOff = vipEligible ? VIP_OFF : 0;
+                      const finalPrice = Math.max(0, base - vipOff);
+                      const mrp = Number(p.mrp || 0);
+                      const discount = mrp && mrp > base ? Math.round(((mrp - base) / mrp) * 100) : 0;
                       return (
                         <div key={p._id} className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col">
                           <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
@@ -255,12 +265,15 @@ const Shop: React.FC = () => {
                           <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title}</div>
                           <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
                           <div className="mt-2 flex items-baseline gap-2">
-                            <div className="text-lg font-semibold text-gray-900">{currency(p.price)}</div>
-                            {p.mrp && p.mrp > (p.price || 0) && (
+                            <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>
+                            {mrp && mrp > base && (
                               <>
-                                <div className="text-xs line-through text-gray-400">{currency(p.mrp)}</div>
+                                <div className="text-xs line-through text-gray-400">{currency(mrp)}</div>
                                 <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
                               </>
+                            )}
+                            {vipEligible && vipOff > 0 && (
+                              <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5">VIP -₹{VIP_OFF}</span>
                             )}
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
