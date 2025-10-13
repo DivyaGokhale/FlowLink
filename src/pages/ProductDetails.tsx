@@ -5,6 +5,7 @@ import Footer from "../components/Footer";
 import { useToast } from "../components/ToastContext";
 import BackButton from "../components/BackButton";
 import Skeleton from "../components/ui/Skeleton";
+import { useAuth } from "../components/AuthContext";
 
 interface Product {
   _id: string;
@@ -20,6 +21,7 @@ const ProductDetails: React.FC = () => {
   const { id, shop } = useParams<{ id: string, shop?: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { vipEligible } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
@@ -34,7 +36,10 @@ const ProductDetails: React.FC = () => {
         _id: String(d._id || d.id),
         name: d.title || d.name || "Untitled",
         pack: d.pack,
-        price: typeof d.price === 'number' ? d.price : parseFloat(d.price || '0'),
+        // prefer discounted price from backend if available
+        price: typeof d.discountedPrice === 'number'
+          ? d.discountedPrice
+          : (typeof d.price === 'number' ? d.price : parseFloat(d.price || '0')),
         image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
         desc: d.description || d.desc,
         quantity: typeof d.quantity === 'number' ? d.quantity : undefined,
@@ -83,21 +88,23 @@ const ProductDetails: React.FC = () => {
     load();
   }, [id, shop]);
 
+  const VIP_OFF = 15; // rupees off for VIP
   const addToCart = () => {
     if (!product) return;
 
     const storedCart: Product[] = JSON.parse(localStorage.getItem("cart") || "[]");
     const existing = storedCart.find((item) => item._id === product._id);
+    const vipPrice = Math.max(0, (product.price || 0) - (vipEligible ? VIP_OFF : 0));
 
     let updatedCart;
     if (existing) {
       updatedCart = storedCart.map((item) =>
         item._id === product._id
-          ? { ...item, quantity: (item.quantity || 1) + 1 }
+          ? { ...item, price: vipPrice, quantity: (item.quantity || 1) + 1 }
           : item
       );
     } else {
-      updatedCart = [...storedCart, { ...product, quantity: 1 }];
+      updatedCart = [...storedCart, { ...product, price: vipPrice, quantity: 1 }];
     }
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
@@ -160,7 +167,7 @@ const ProductDetails: React.FC = () => {
             <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
             <p className="text-gray-500 mb-2">{product.pack}</p>
             <p className="text-2xl font-semibold text-green-600 mb-4">
-              ₹{product.price}
+              ₹{Math.max(0, (product.price || 0) - (vipEligible ? VIP_OFF : 0))}
             </p>
             {product.desc && (
               <p className="text-gray-700 mb-6">{product.desc}</p>

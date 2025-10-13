@@ -90,10 +90,15 @@ const userSchema = new mongoose.Schema({
   name: { type: String, default: '' },
   email: { type: String, required: true, index: true },
   passwordHash: { type: String, required: true },
+  // Indicates how this user was created (e.g., 'provision' from admin)
+  source: { type: String, default: '' },
   createdAt: { type: Date, default: () => new Date() },
 }, { timestamps: true });
 // Unique per shop
 userSchema.index({ sellerId: 1, email: 1 }, { unique: true });
+
+// Routes base (must be defined before first usage)
+const base = '/api';
 
 // Offers (visible to customer view)
 app.get(base + '/offers', async (req, res) => {
@@ -286,8 +291,7 @@ try {
   Shop = mongoose.model('Shop');
 } catch { Shop = mongoose.model('Shop', shopSchema); }
 
-// Routes base
-const base = '/api';
+// Routes base (already declared above)
 
 // Health
 app.get(base + '/health', (req, res) => res.json({ ok: true }));
@@ -343,7 +347,7 @@ app.post(base + '/auth/register', async (req, res) => {
       const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
       if (s) sellerId = String(s.userId)
     }
-    if (!sellerId) return res.status(400).json({ error: 'shop or x-user-id required' })
+    if (!sellerId) sellerId = String(ADMIN_USER_ID)
 
     const existing = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } }).lean();
     if (existing) return res.status(409).json({ error: 'Email already registered' });
@@ -368,7 +372,7 @@ app.post(base + '/auth/login', async (req, res) => {
       const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
       if (s) sellerId = String(s.userId)
     }
-    if (!sellerId) return res.status(400).json({ error: 'shop or x-user-id required' })
+    if (!sellerId) sellerId = String(ADMIN_USER_ID)
     const doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
     if (!doc) return res.status(401).json({ error: 'Invalid credentials' });
     const ok = await bcrypt.compare(password, doc.passwordHash);
@@ -378,6 +382,103 @@ app.post(base + '/auth/login', async (req, res) => {
     res.json({ token, user });
   } catch (err) {
     console.error('Login error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Auth: Provision (upsert user, set password) - for admin-triggered customer portal
+app.post(base + '/auth/provision', async (req, res) => {
+  try {
+    const { name, email, password, shop } = req.body || {};
+    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+    let sellerId = (req.header('x-user-id') || '').trim();
+    if (!sellerId && shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean();
+      if (s) sellerId = String(s.userId);
+    }
+    if (!sellerId) sellerId = String(ADMIN_USER_ID);
+
+    let doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
+    const hash = await bcrypt.hash(password, 10);
+    if (doc) {
+      // update password and optionally name
+      const newName = name || doc.name || '';
+      await User.updateOne({ _id: doc._id }, { $set: { passwordHash: hash, name: newName, source: 'provision' } });
+      // refresh doc
+      doc = await User.findById(doc._id);
+    } else {
+      // create
+      doc = await User.create({ id: uuidv4(), sellerId, name: name || '', email, passwordHash: hash, source: 'provision' });
+    }
+    const user = { id: doc.id, name: doc.name, email: doc.email };
+    const token = sign(user);
+    res.json({ token, user });
+  } catch (err) {
+    console.error('Provision error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Determine eligibility for VIP pricing for the logged-in user within a shop
+app.get(base + '/auth/eligibility', async (req, res) => {
+  try {
+    const { shop } = req.query || {};
+    const headerUserId = (req.header('x-user-id') || '').trim();
+    let sellerId = '';
+    if (shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean();
+      if (!s) return res.status(404).json({ error: 'Shop not found' });
+      sellerId = String(s.userId);
+    } else if (headerUserId) {
+      sellerId = String(headerUserId);
+    } else {
+      return res.status(400).json({ error: 'shop or x-user-id required' });
+    }
+
+    // Get user email from Authorization token if provided
+    const authHeader = req.header('authorization') || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    let email = '';
+    if (token) {
+      try {
+        const payload = jwt.verify(token, JWT_SECRET);
+        const sub = typeof payload === 'object' && payload ? (payload).sub : null;
+        if (sub) {
+          const u = await User.findOne({ id: String(sub) }).lean();
+          if (u && u.email) email = String(u.email).toLowerCase();
+        }
+      } catch (_) {
+        // ignore token errors; fall back to query param
+      }
+    }
+    if (!email && typeof req.query?.email === 'string') {
+      email = String(req.query.email).toLowerCase();
+    }
+    if (!email) return res.status(400).json({ error: 'email not found' });
+
+    // Check if user was added as a customer in admin (exists in customers collection),
+    // or was provisioned via admin, or explicitly VIP-tagged.
+    const escapeRegExp = (s = '') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const byEmail = { $regex: `^${escapeRegExp(email)}$`, $options: 'i' };
+    const customer = await Customer.findOne({ userId: sellerId, email: byEmail }).lean();
+    let eligible = Boolean(customer);
+    let reason = eligible ? 'customer' : 'none';
+    // VIP-tagged customer (refine reason)
+    if (customer && typeof customer.tags === 'string' && /\bvip\b/i.test(customer.tags)) {
+      reason = 'vip-tag';
+    }
+    // Or provisioned user (admin-added portal account)
+    if (!eligible) {
+      const usr = await User.findOne({ sellerId, email: byEmail }).lean();
+      if (usr && String(usr.source || '') === 'provision') {
+        eligible = true;
+        reason = 'provision';
+      }
+    }
+
+    return res.json({ eligible, reason });
+  } catch (err) {
+    console.error('Eligibility error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
