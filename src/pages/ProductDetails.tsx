@@ -108,6 +108,7 @@ const ProductDetails: React.FC = () => {
     }
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
     showToast(`✅ ${product.name} added to cart`);
   };
 

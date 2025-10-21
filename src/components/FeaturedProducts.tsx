@@ -58,12 +58,13 @@ const FeaturedProducts: React.FC = () => {
       : [...existingCart, { ...product, quantity: 1 }];
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
     showToast(`✅ ${product.name} added to cart`);
   };
 
   if (loading) {
     return (
-      <section className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+      <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -80,7 +81,7 @@ const FeaturedProducts: React.FC = () => {
   }
 
   return (
-    <section className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+    <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
         {products.map((product) => {
@@ -92,8 +93,8 @@ const FeaturedProducts: React.FC = () => {
               className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 flex flex-col"
             >
               {/* Product Image */}
-              <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 overflow-hidden">
-                <div className="aspect-square w-full rounded-lg bg-gray-50 flex items-center justify-center">
+              <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 overflow-hidden">
+                <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center">
                   <img
                     src={product.image}
                     alt={product.name}
@@ -122,12 +123,12 @@ const FeaturedProducts: React.FC = () => {
               </div>
               {/* Actions */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
+                <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25">
                   View
                 </Link>
                 <button
                   onClick={() => addToCart(product)}
-                  className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95"
+                  className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35"
                 >
                   Add to Cart
                 </button>

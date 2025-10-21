@@ -18,6 +18,33 @@ const Landingpage: React.FC = () => {
   return (
     <>
       <Header />
+      {/* Hero: Amazon-like banner */}
+      <section className="bg-[#232f3e]">
+        <div className="w-full max-w-7xl mx-auto px-6">
+          <div className="relative text-white py-6 md:py-8">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Everything you need, delivered fast</h1>
+                <p className="text-white/80 mt-1 text-sm md:text-base">Groceries, essentials and more from local stores.</p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <a
+                  href="#categories"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-full bg-green-600 hover:bg-green-500 text-white text-sm font-medium shadow-button transition"
+                >
+                  Shop categories
+                </a>
+                <a
+                  href="#deals"
+                  className="inline-flex items-center justify-center h-10 px-4 rounded-full border-2 border-green-600 text-green-100 hover:text-white hover:bg-green-600/20 text-sm font-medium transition"
+                >
+                  See today’s deals
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <DiscountBanner />
       <ProductShowcase />
       <CategorySection />

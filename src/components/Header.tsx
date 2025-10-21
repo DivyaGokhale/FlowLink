@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
@@ -6,27 +6,27 @@ import Skeleton from "./ui/Skeleton";
 // Icons
 const LocationIcon = () => (
   <svg width={20} height={20} fill="none">
-    <circle cx="10" cy="7" r="5.5" stroke="#555" />
+    <circle cx="10" cy="7" r="5.5" stroke="currentColor" />
     <path
       d="M10 13.8c2.5 0 4.5-1.8 4.5-4.3 0-2.5-2-4.4-4.5-4.4s-4.5 1.9-4.5 4.4c0 2.5 2 4.3 4.5 4.3z"
-      fill="#fff"
-      stroke="#555"
+      fill="currentColor"
+      stroke="currentColor"
     />
   </svg>
 );
 
 const ProfileIcon = () => (
   <svg width={23} height={23} fill="none">
-    <circle cx="11.5" cy="8" r="4.5" stroke="black" />
-    <rect x="4" y="15" width="15" height="6" rx="3" stroke="black" />
+    <circle cx="11.5" cy="8" r="4.5" stroke="currentColor" />
+    <rect x="4" y="15" width="15" height="6" rx="3" stroke="currentColor" />
   </svg>
 );
 
 // Simple bell alert icon
 const AlertIcon = () => (
   <svg width={23} height={23} fill="none">
-    <path d="M12 6v8" stroke="black" strokeWidth={2} />
-    <circle cx="12" cy="18" r="2" fill="black" />
+    <path d="M12 6v8" stroke="currentColor" strokeWidth={2} />
+    <circle cx="12" cy="18" r="2" fill="currentColor" />
   </svg>
 );
 
@@ -46,18 +46,27 @@ const CartIcon = () => (
 
 const OrdersIcon = () => (
   <svg width={23} height={23} fill="none">
-    <rect x="5" y="4" width="13" height="15" rx="2" stroke="black" />
-    <path d="M8 8h7M8 12h7M8 16h7" stroke="black" strokeWidth={2} />
+    <rect x="5" y="4" width="13" height="15" rx="2" stroke="currentColor" />
+    <path d="M8 8h7M8 12h7M8 16h7" stroke="currentColor" strokeWidth={2} />
   </svg>
 );
 
 const Header = () => {
   const navigate = useNavigate();
-  const [cartCount, setCartCount] = useState(0);
-  const { isAuthenticated, logout } = useAuth();
+  const [cartCount, setCartCount] = useState(() => {
+    try {
+      const cart = JSON.parse(localStorage.getItem("cart") || "[]");
+      return Array.isArray(cart)
+        ? cart.reduce((sum: number, it: any) => sum + (it.quantity || 1), 0)
+        : 0;
+    } catch { return 0; }
+  });
+  const { isAuthenticated, logout, user } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [shopLoading, setShopLoading] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -67,7 +76,27 @@ const Header = () => {
     };
     updateCartCount();
     window.addEventListener("storage", updateCartCount);
-    return () => window.removeEventListener("storage", updateCartCount);
+    window.addEventListener("cart-updated", updateCartCount as any);
+    const onVisibility = () => { if (!document.hidden) updateCartCount(); };
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", updateCartCount);
+    return () => {
+      window.removeEventListener("storage", updateCartCount);
+      window.removeEventListener("cart-updated", updateCartCount as any);
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", updateCartCount);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (profileRef.current && !profileRef.current.contains(t)) {
+        setProfileOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   // Load shop branding if slug present
@@ -84,8 +113,8 @@ const Header = () => {
   }, [shop]);
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-sm">
-      <div className="max-w-7xl px-4 sm:px-6 py-3">
+    <header className="sticky top-0 z-50 w-full bg-[#131921] text-white shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2">
         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           {/* Logo */}
           <button
@@ -94,7 +123,7 @@ const Header = () => {
             className="flex items-center text-2xl sm:text-3xl font-medium mr-1 sm:mr-2 cursor-pointer"
           >
             <img
-              src={shopInfo?.logo || "/assets/flowlink-logo-black.png"}
+              src={shopInfo?.logo || "/assets/flowlink-logo-white.png"}
               alt={(shopInfo?.name || 'FlowLink') + ' Logo'}
               className="w-[70px] h-[40px] object-contain"
               onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (t.src !== "/assets/flowlink-logo-black.png") t.src = "/assets/flowlink-logo-black.png"; }}
@@ -102,12 +131,12 @@ const Header = () => {
             {shopLoading ? (
               <div className="ml-2 w-28"><Skeleton className="h-6 w-24 rounded" /></div>
             ) : (
-              <span className="ml-2 font-mate text-black text-bold text-[20px] font-medium">{shopInfo?.name || 'FlowLink'}</span>
+              <span className="ml-2 font-mate text-white text-bold text-[20px] font-medium">{shopInfo?.name || 'FlowLink'}</span>
             )}
           </button>
 
           {/* Location */}
-          <span className="hidden md:inline-flex items-center text-sm text-gray-600 mr-2">
+          <span className="hidden md:inline-flex items-center text-sm text-gray-200 mr-2">
             <LocationIcon />
             <span className="mx-2">Delivery to Ratnagiri, Maharashtra</span>
             <span className="text-sm">▼</span>
@@ -127,41 +156,23 @@ const Header = () => {
                 type="text"
                 placeholder="Search for products like rice, sugar, oil, masale..."
                 aria-label="Search products"
-                className="w-full text-sm sm:text-base pl-9 pr-4 py-2 border border-gray-200 rounded-full bg-secondary/80 backdrop-blur shadow-soft outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]/50 transition"
+                className="w-full text-sm sm:text-base pl-9 pr-4 py-2 rounded-md bg-white text-black outline-none focus:ring-2 focus:ring-[#febd69]/50 transition"
               />
             </div>
           </div>
 
           {/* Icons */}
           <nav className="ml-auto flex items-center gap-4 sm:gap-6">
-            {isAuthenticated ? (
-              <button
-                onClick={logout}
-                aria-label="Logout"
-                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
-              >
-                <ProfileIcon />
-                <span className="mt-0.5 hidden sm:block">Logout</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate("/login")}
-                aria-label="Login"
-                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
-              >
-                <ProfileIcon />
-                <span className="mt-0.5 hidden sm:block">Login</span>
-              </button>
-            )}
+            
 
             <button
               onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
               aria-label={`Open cart${cartCount > 0 ? ` with ${cartCount} items` : ''}`}
-              className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
+              className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-green-400 transition-colors"
             >
               <CartIcon />
               {cartCount > 0 && (
-                <span className="absolute -top-1.5 right-1.5 bg-[hsl(var(--primary))] text-white rounded-full text-[10px] w-4 h-4 inline-flex items-center justify-center shadow-button">
+                <span className="absolute -top-1.5 right-1.5 bg-green-600 text-white rounded-full text-[10px] w-4 h-4 inline-flex items-center justify-center shadow-button">
                   {cartCount}
                 </span>
               )}
@@ -171,19 +182,79 @@ const Header = () => {
             <button
               onClick={() => navigate(shop ? `/${shop}/orders` : "/orders")}
               aria-label="View order history"
-              className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
+              className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-green-400 transition-colors"
             >
               <OrdersIcon />
               <span className="mt-0.5 hidden sm:block">Orders</span>
             </button>
 
-            <button
-              aria-label="View alerts"
-              className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-[hsl(var(--primary))] transition-colors"
+            <div
+              className="relative"
+              ref={profileRef}
             >
-              <AlertIcon />
-              <span className="mt-0.5 hidden sm:block">Alerts</span>
-            </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setProfileOpen((v) => !v);
+                }}
+                aria-label="View profile"
+                aria-expanded={profileOpen}
+                className="flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-green-400 transition-colors"
+              >
+                <ProfileIcon />
+                <span className="mt-0.5 hidden sm:block">{isAuthenticated ? (user?.name ? user.name.split(" ")[0] : "Account") : "Profile"}</span>
+              </button>
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white text-black rounded-md shadow-lg ring-1 ring-black/5 z-50">
+                  {!isAuthenticated ? (
+                    <div className="p-4">
+                      <div className="text-sm text-gray-700 mb-3">Hello, sign in</div>
+                      <button
+                        className="w-full bg-green-600 hover:bg-green-500 text-white font-medium py-2 px-3 rounded-md shadow-button"
+                        onClick={() => navigate(shop ? `/${shop}/login` : "/login")}
+                      >
+                        Sign in
+                      </button>
+                      <div className="mt-3 border-t pt-3 text-sm">
+                        <button
+                          className="w-full text-left hover:text-[#131921] text-[#007185]"
+                          onClick={() => navigate(shop ? `/${shop}/orders` : "/orders")}
+                        >
+                          Your Orders
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-2">
+                      <div className="px-2 py-2 text-sm text-gray-600">Hello, {user?.name || user?.email}</div>
+                      <button
+                        className="w-full text-left px-2 py-2 hover:bg-gray-100 rounded-md text-sm"
+                        onClick={() => navigate(shop ? `/${shop}/profile` : "/profile")}
+                      >
+                        Your Account
+                      </button>
+                      <button
+                        className="w-full text-left px-2 py-2 hover:bg-gray-100 rounded-md text-sm"
+                        onClick={() => navigate(shop ? `/${shop}/orders` : "/orders")}
+                      >
+                        Your Orders
+                      </button>
+                      <div className="border-t my-1" />
+                      <button
+                        className="w-full text-left px-2 py-2 hover:bg-gray-100 rounded-md text-sm text-red-600"
+                        onClick={() => {
+                          logout();
+                          setProfileOpen(false);
+                          navigate(shop ? `/${shop}` : "/");
+                        }}
+                      >
+                        Logout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </nav>
         </div>
       </div>

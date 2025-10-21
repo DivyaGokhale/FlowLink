@@ -25,11 +25,18 @@ const OrderHistory: React.FC = () => {
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { token, user, isAuthenticated } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setLoading(false);
+      setOrders([]);
+      setError(null);
+      return;
+    }
     const load = async () => {
       setLoading(true);
       setError(null);
@@ -96,18 +103,54 @@ const OrderHistory: React.FC = () => {
       }
     };
     load();
-  }, [token, user]);
+  }, [token, user, isAuthenticated]);
 
   const clearHistory = () => {
     localStorage.removeItem("orderHistory");
     setOrders([]);
   };
 
+  const visible = orders.filter((o) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    if (o.id.toLowerCase().includes(q)) return true;
+    return o.items.some((it) => it.name.toLowerCase().includes(q));
+  });
+
+  if (!isAuthenticated) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen bg-gray-50 p-4 md:p-6 animate-fade-in-up">
+          <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-card rounded-lg p-6 text-center">
+            <h1 className="text-xl md:text-2xl font-semibold mb-2">Your Orders</h1>
+            <p className="text-sm text-gray-700 mb-4">To place and view orders, login or signup.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                onClick={() => navigate(shop ? `/${shop}/login` : "/login")}
+                className="h-10 px-4 rounded-full bg-[hsl(var(--primary))] text-white shadow-button hover:brightness-95"
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate(shop ? `/${shop}/signup` : "/signup")}
+                className="h-10 px-4 rounded-full border border-gray-300 hover:bg-gray-50"
+              >
+                Signup
+              </button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Header />
       <main className="min-h-screen bg-gray-50 p-4 md:p-6 animate-fade-in-up">
-        <div className="max-w-5xl mx-auto bg-white shadow rounded-lg p-4 md:p-6">
+        <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-card rounded-lg p-4 md:p-6">
           {loading && (
             <div className="mb-4 space-y-4">
               {Array.from({ length: 3 }).map((_, i) => (
@@ -122,11 +165,18 @@ const OrderHistory: React.FC = () => {
           {error && (
             <div className="mb-4 text-sm text-red-600">{error}</div>
           )}
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl md:text-2xl font-semibold">Order History</h1>
-            <div className="flex gap-2">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+            <h1 className="text-xl md:text-2xl font-semibold">Your Orders</h1>
+            <div className="flex w-full md:w-auto gap-2">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search all orders"
+                className="flex-1 md:w-80 h-10 rounded-lg border border-gray-300 px-3 text-sm focus:ring-2 focus:ring-[hsl(var(--primary))]/30 outline-none"
+              />
               <button
-                className="px-3 py-2 text-sm rounded border"
+                className="px-3 py-2 text-sm rounded border hidden md:inline-block"
                 onClick={() => navigate(shop ? `/${shop}` : "/")}
               >
                 Continue Shopping
@@ -142,39 +192,50 @@ const OrderHistory: React.FC = () => {
             </div>
           </div>
 
-          {orders.length === 0 ? (
+          {visible.length === 0 ? (
             <p className="text-gray-600">No past orders found.</p>
           ) : (
-            <ul className="space-y-4">
-              {orders.map((order) => (
-                <li key={order.id} className="bg-white border rounded-lg p-4 shadow-sm transition hover:shadow-lg">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
+            <ul className="space-y-5">
+              {visible.map((order) => (
+                <li key={order.id} className="bg-white border rounded-lg shadow-sm">
+                  {/* Header bar */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2 bg-gray-50 border-b rounded-t-lg p-3 text-sm">
                     <div>
-                      <p className="text-sm text-gray-500">Order ID</p>
-                      <p className="font-medium">{order.id}</p>
+                      <span className="text-gray-500">Ordered on</span>
+                      <div className="font-medium">{new Date(order.createdAt).toLocaleDateString()}</div>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Date</p>
-                      <p className="font-medium">{new Date(order.createdAt).toLocaleString()}</p>
+                      <span className="text-gray-500">Total</span>
+                      <div className="font-medium">₹{order.totals.total.toFixed(2)}</div>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Total</p>
-                      <p className="font-semibold">₹{order.totals.total.toFixed(2)}</p>
+                      <span className="text-gray-500">Ship to</span>
+                      <div className="font-medium">—</div>
                     </div>
-                    <div>
-                      <p className="text-sm text-gray-500">Payment</p>
-                      <p className="font-medium">{order.payment.method.toUpperCase()} · {order.payment.status}</p>
+                    <div className="md:text-right">
+                      <span className="text-gray-500">Order #</span>
+                      <div className="font-medium break-all">{order.id}</div>
                     </div>
                   </div>
-                  <div className="mt-3 border-t pt-3 space-y-2">
-                    {order.items.map((it, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-sm">
-                        <span>
-                          {it.name} ({it.quantity} × ₹{Number(it.price)})
-                        </span>
-                        <span>₹{Number(it.price) * Number(it.quantity)}</span>
-                      </div>
-                    ))}
+                  {/* Items */}
+                  <div className="p-4">
+                    <div className="space-y-4">
+                      {order.items.map((it, idx) => (
+                        <div key={idx} className="flex items-start gap-4">
+                          <img src={it.image || "/favicon.ico"} alt={it.name} className="w-16 h-16 object-contain border rounded" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium line-clamp-2">{it.name}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">Qty: {it.quantity}</div>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <button className="h-8 px-3 rounded-full bg-[hsl(var(--primary))] hover:brightness-95 text-xs font-medium text-white shadow-button">Buy it again</button>
+                              <button onClick={() => navigate(shop ? `/${shop}/product/${it.productId}` : `/product/${it.productId}`)} className="h-8 px-3 rounded-full border border-gray-300 hover:bg-gray-50 text-xs">View item</button>
+                              <button className="h-8 px-3 rounded-full border border-gray-300 hover:bg-gray-50 text-xs">View order details</button>
+                            </div>
+                          </div>
+                          <div className="text-sm font-semibold">₹{Number(it.price) * Number(it.quantity)}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </li>
               ))}

@@ -27,52 +27,52 @@ const categories: Category[] = [
   {
     id: 1,
     name: "Dairy, Bread & Eggs",
-    image: "/categories/dairy-bread-eggs.png",
+    image: "/categories/diary_bread_eggs.jfif",
   },
   {
     id: 2,
     name: "Cold Drinks & Juices",
-    image: "/categories/cold-drinks-juices.png",
+    image: "/categories/cold-drinks-juices.jfif",
   },
   {
     id: 3,
     name: "Rice, Atta & Grains",
-    image: "/categories/rice-atta-grains.png",
+    image: "/categories/rice_atta_grains.jfif",
   },
   {
     id: 4,
     name: "Sugar, Jaggery & Salt",
-    image: "/categories/sugar-jaggery-salt.png",
+    image: "/categories/sugar_jaggery_salt.jfif",
   },
   {
     id: 5,
     name: "Masale & Spices",
-    image: "/categories/masale-spices.png",
+    image: "/categories/masale_spices.jfif",
   },
   {
     id: 6,
     name: "Biscuits & Snacks",
-    image: "/categories/dairy-bread-eggs.png",
+    image: "/categories/biscuits_snacks.jfif",
   },
   {
     id: 7,
     name: "Tea, Coffee & Beverages",
-    image: "/categories/cold-drinks-juices.png",
+    image: "/categories/tea_coffee_beverages.jfif",
   },
   {
     id: 8,
     name: "Oil & Ghee",
-    image: "/categories/rice-atta-grains.png",
+    image: "/categories/oil_ghee.jfif",
   },
   {
     id: 9,
     name: "Personal Care",
-    image: "/categories/sugar-jaggery-salt.png",
+    image: "/categories/personal_care.jfif",
   },
   {
     id: 10,
     name: "Household Cleaning",
-    image: "/categories/masale-spices.png",
+    image: "/categories/household_cleaning.jfif",
   },
 ];
 
@@ -80,16 +80,20 @@ const CategorySection: React.FC = () => {
   const navigate = useNavigate();
   const { shop } = useParams<{ shop?: string }>();
   return (
-    <section className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Explore by Categories</h2>
+    <section id="categories" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">
+        Explore by Categories
+      </h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
         {categories.map((cat) => (
           <div
             key={cat.id}
             onClick={() => navigate(`${shop ? `/${shop}` : ""}/shop?category=${encodeURIComponent(cat.name)}`)}
-            className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1.5 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 animate-scale-in"
+            role="button"
+            aria-label={cat.name}
+            className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 animate-scale-in"
           >
-            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-secondary">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-secondary ring-1 ring-gray-100">
               <img
                 src={cat.image}
                 alt={cat.name}
@@ -103,7 +107,7 @@ const CategorySection: React.FC = () => {
                 className="w-24 h-24 sm:w-28 sm:h-28 object-cover rounded-full bg-white p-1 transition-transform duration-300 group-hover:scale-[1.06]"
               />
             </div>
-            <p className="mt-3 text-sm font-medium text-gray-700 text-center">
+            <p className="mt-3 text-sm font-medium text-gray-800 text-center">
               {cat.name}
             </p>
           </div>

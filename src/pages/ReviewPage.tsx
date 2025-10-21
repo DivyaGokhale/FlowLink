@@ -70,7 +70,7 @@ const ReviewPage: React.FC = () => {
 
   const isCOD = paymentDetails?.method === "cod";
   const statusNode = isCOD ? (
-    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Pending · COD</span>
+    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] border border-[hsl(var(--primary))]/20">Pending · COD</span>
   ) : (
     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 border border-green-200">Paid</span>
   );
@@ -93,7 +93,7 @@ const ReviewPage: React.FC = () => {
           {/* Payment Status / Summary Header */}
           {isCOD ? (
             <div className="bg-white p-6 rounded-xl shadow-card md:col-span-2 border border-gray-100">
-              <h2 className="text-lg font-semibold text-yellow-700">Cash on Delivery Selected</h2>
+              <h2 className="text-lg font-semibold text-[hsl(var(--primary))]">Cash on Delivery Selected</h2>
               <p className="text-gray-600 text-sm">Please keep exact change ready. You will pay on delivery.</p>
               <p className="text-2xl font-bold mt-3">₹{totals.total.toFixed(2)}</p>
             </div>

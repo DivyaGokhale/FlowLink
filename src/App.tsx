@@ -13,6 +13,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import OrderHistory from "./pages/OrderHistory";
+import Profile from "./pages/Profile";
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
@@ -36,119 +37,25 @@ function App() {
               <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                {/* Per-shop routes */}
-                <Route
-                  path="/:shop"
-                  element={
-                    <ProtectedRoute>
-                      <Landingpage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/shop"
-                  element={
-                    <ProtectedRoute>
-                      <Shop />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/product/:id"
-                  element={
-                    <ProtectedRoute>
-                      <ProductDetails />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/payment"
-                  element={
-                    <ProtectedRoute>
-                      <PaymentPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/addToCart"
-                  element={
-                    <ProtectedRoute>
-                      <AddToCart />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/review"
-                  element={
-                    <ProtectedRoute>
-                      <ReviewPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/:shop/orders"
-                  element={
-                    <ProtectedRoute>
-                      <OrderHistory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/orders"
-                  element={
-                    <ProtectedRoute>
-                      <OrderHistory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Landingpage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/shop"
-                  element={
-                    <ProtectedRoute>
-                      <Shop />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/product/:id"
-                  element={
-                    <ProtectedRoute>
-                      <ProductDetails />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/payment"
-                  element={
-                    <ProtectedRoute>
-                      <PaymentPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/addToCart"
-                  element={
-                    <ProtectedRoute>
-                      <AddToCart />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/review"
-                  element={
-                    <ProtectedRoute>
-                      <ReviewPage />
-                    </ProtectedRoute>
-                  }
-                />
+                <Route path="/:shop/login" element={<Login />} />
+                <Route path="/:shop/signup" element={<Signup />} />
+                {/* Per-shop routes (public browse) */}
+                <Route path="/:shop" element={<Landingpage />} />
+                <Route path="/:shop/shop" element={<Shop />} />
+                <Route path="/:shop/product/:id" element={<ProductDetails />} />
+                <Route path="/:shop/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+                <Route path="/:shop/addToCart" element={<AddToCart />} />
+                <Route path="/:shop/review" element={<ProtectedRoute><ReviewPage /></ProtectedRoute>} />
+                <Route path="/:shop/orders" element={<OrderHistory />} />
+                <Route path="/:shop/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/orders" element={<OrderHistory />} />
+                <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                <Route path="/" element={<Landingpage />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="/payment" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
+                <Route path="/addToCart" element={<AddToCart />} />
+                <Route path="/review" element={<ProtectedRoute><ReviewPage /></ProtectedRoute>} />
               </Routes>
             </Router>
           </AddressProvider>

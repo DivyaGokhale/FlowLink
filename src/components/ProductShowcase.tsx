@@ -62,6 +62,7 @@ const ProductShowcase: React.FC = () => {
       : [...existingCart, { ...product, quantity: 1 }];
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
     showToast(`✅ ${product.name} added to cart`);
   };
 
@@ -99,8 +100,8 @@ const ProductShowcase: React.FC = () => {
                 className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 p-4 flex flex-col"
               >
                 {/* Product Image */}
-                <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/20 rounded-lg">
-                  <div className="aspect-square w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
+                <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 rounded-lg">
+                  <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 overflow-hidden flex items-center justify-center">
                     <img
                       src={item.image}
                       alt={item.name}
@@ -128,10 +129,10 @@ const ProductShowcase: React.FC = () => {
                 </div>
                 {/* Actions */}
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50">
+                  <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25">
                     View
                   </Link>
-                  <button onClick={() => addToCart(item)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">
+                  <button onClick={() => addToCart(item)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35">
                     Add to Cart
                   </button>
                 </div>

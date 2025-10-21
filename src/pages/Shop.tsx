@@ -147,6 +147,7 @@ const Shop: React.FC = () => {
       ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
       : [...existing, item];
     localStorage.setItem("cart", JSON.stringify(updated));
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
     showToast(`✅ ${item.name} added to cart`);
   };
 

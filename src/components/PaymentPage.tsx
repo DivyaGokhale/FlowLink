@@ -182,45 +182,11 @@ const PaymentPage: React.FC = () => {
     <Header />
     <BackButton confirmOnPayment fallbackPath={shop ? `/${shop}/addToCart` : "/addToCart"} />
     <div className="bg-gray-50 min-h-screen p-6 flex flex-col items-center animate-fade-in-up">
-      <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Order Summary */}
-        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
-          <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-          <div className="space-y-3">
-            {cartItems.length === 0 ? (
-              <p className="text-gray-500">No items in cart</p>
-            ) : (
-              cartItems.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span>
-                    {item.name} ({item.quantity} × ₹{item.price})
-                  </span>
-                  <span>₹{item.price * item.quantity}</span>
-                </div>
-              ))
-            )}
-            <hr className="my-2" />
-            <div className="flex justify-between text-sm">
-              <span>Subtotal</span>
-              <span>₹{totals.subtotal.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>Delivery Fee</span>
-              <span>₹{totals.delivery.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span>GST (5%)</span>
-              <span>₹{totals.gst.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between font-semibold">
-              <span>Total</span>
-              <span>₹{totals.total.toFixed(2)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Delivery Address */}
-        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
+      <div className="max-w-6xl w-full grid grid-cols-1 md:grid-cols-[1fr_360px] gap-6">
+        {/* Left: Address + Payment */}
+        <div className="space-y-6">
+          {/* Delivery Address */}
+          <div className="bg-white border border-gray-100 rounded-lg p-6 shadow-card transition hover:shadow-lg">
           <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
           <div className="space-y-3">
             {selectedAddress ? (
@@ -259,7 +225,7 @@ const PaymentPage: React.FC = () => {
         </div>
 
         {/* Payment Section */}
-        <div className="bg-white border border-gray-100 rounded-lg p-6 md:col-span-1 shadow-card transition hover:shadow-lg">
+        <div className="bg-white border border-gray-100 rounded-lg p-6 shadow-card transition hover:shadow-lg">
           <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
 
           {/* Product Preview */}
@@ -427,21 +393,47 @@ const PaymentPage: React.FC = () => {
           {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
           {/* Buttons */}
-          <div className="flex justify-between mt-6 gap-3">
+          <div className="flex justify-start mt-6 gap-3">
             <button
               onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
               className="bg-gray-200 px-4 py-2 rounded hover:bg-gray-300 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/30 active:scale-[0.99]"
             >
               Back
             </button>
-            <button
-              onClick={handleContinue}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg shadow-button hover:bg-green-700 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500/40 active:scale-[0.99]"
-            >
-              Place Order
-            </button>
           </div>
         </div>
+        </div>
+
+        {/* Right: Sticky Order Summary */}
+        <aside className="md:sticky md:top-24 h-max">
+          <div className="bg-white border border-gray-100 rounded-lg p-6 shadow-card">
+            <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span>Items:</span>
+                <span>₹{totals.subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Delivery:</span>
+                <span>₹{totals.delivery.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>GST (5%)</span>
+                <span>₹{totals.gst.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-semibold text-base border-t pt-2">
+                <span>Order Total</span>
+                <span>₹{totals.total.toFixed(2)}</span>
+              </div>
+              <button
+                onClick={handleContinue}
+                className="mt-3 w-full h-10 rounded-full bg-[hsl(var(--primary))] hover:brightness-95 text-white font-medium shadow-button"
+              >
+                Place your order
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
     <Footer />
