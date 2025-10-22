@@ -26,20 +26,40 @@ const PaymentPage: React.FC = () => {
   const [totals, setTotals] = useState({ subtotal: 0, gst: 0, delivery: 50, total: 0 });
   const [error, setError] = useState("");
 
-  // Load cart from localStorage
+  // Load cart from localStorage and keep in sync without page refresh
   useEffect(() => {
-    const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
-    setCartItems(storedCart);
-
-    if (storedCart.length > 0) {
-      let subtotal = storedCart.reduce(
-        (acc: number, item: Product) => acc + item.price * item.quantity,
-        0
-      );
-      let gst = Math.round(subtotal * 0.05); // 5% GST
-      let delivery = Math.round((selectedAddress?.time === "25 mins" ? 3.0 : 5.0) * 10); // Base delivery calculation
+    const computeTotals = (items: Product[]) => {
+      const subtotal = items.reduce((acc: number, it: Product) => acc + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
+      const gst = Math.round(subtotal * 0.05); // 5% GST
+      const delivery = Math.round((selectedAddress?.time === "25 mins" ? 3.0 : 5.0) * 10);
       setTotals({ subtotal, gst, delivery, total: subtotal + gst + delivery });
-    }
+    };
+
+    const sync = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem("cart") || "[]");
+        setCartItems(stored);
+        computeTotals(stored);
+      } catch {
+        setCartItems([]);
+        computeTotals([]);
+      }
+    };
+
+    // initial
+    sync();
+    // update when address changes (affects delivery calc)
+    computeTotals(JSON.parse(localStorage.getItem("cart") || "[]"));
+    // listen for cross-component updates
+    window.addEventListener("cart-updated", sync as any);
+    window.addEventListener("storage", sync as any);
+    const onVisibility = () => { if (!document.hidden) sync(); };
+    window.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("cart-updated", sync as any);
+      window.removeEventListener("storage", sync as any);
+      window.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [selectedAddress]);
 
   const handleChange = (field: string, value: string) => {
@@ -167,8 +187,9 @@ const PaymentPage: React.FC = () => {
         localStorage.setItem("orderHistory", JSON.stringify(newHistory));
       } catch {}
 
-      // Clear cart after successful order placement
+      // Clear cart after successful order placement and notify listeners
       localStorage.removeItem("cart");
+      try { window.dispatchEvent(new Event("cart-updated")); } catch {}
     } catch (e: any) {
       alert(e?.message || "Failed to place order");
       return;

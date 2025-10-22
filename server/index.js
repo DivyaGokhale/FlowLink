@@ -30,6 +30,26 @@ const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://FlowLink:FlowLink8550@
 // Use the same default DB name as the admin server for local dev parity
 const MONGO_DB_NAME = process.env.MONGO_DB_NAME || 'flowlink';
 
+// Login throttling / temporary lockout configuration
+const LOGIN_MAX_ATTEMPTS = Number(process.env.LOGIN_MAX_ATTEMPTS || 3);
+const LOGIN_WINDOW_MINUTES = Number(process.env.LOGIN_WINDOW_MINUTES || 15);
+const LOGIN_LOCKOUT_MINUTES = Number(process.env.LOGIN_LOCKOUT_MINUTES || 15);
+const LOGIN_WINDOW_MS = LOGIN_WINDOW_MINUTES * 60 * 1000;
+const LOGIN_LOCKOUT_MS = LOGIN_LOCKOUT_MINUTES * 60 * 1000;
+
+// In-memory tracking for failed login attempts per sellerId+email (+IP)
+// Map key format: `${sellerId}|${email}|${ip}`
+const loginAttempts = new Map();
+function attemptKey(sellerId, email, ip) {
+  const e = String(email || '').toLowerCase().trim();
+  const s = String(sellerId || '').trim();
+  const i = String(ip || '').trim();
+  return `${s}|${e || 'noemail'}|${i || 'noip'}`;
+}
+function isLocked(entry, now) {
+  return Boolean(entry && entry.lockUntil && now < entry.lockUntil);
+}
+
 const app = express();
 app.use(express.json());
 // CORS: during dev, allow any local origin (echo back requester). Prevents
@@ -368,15 +388,60 @@ app.post(base + '/auth/login', async (req, res) => {
   try {
     const { email, password, shop } = req.body || {};
     let sellerId = (req.header('x-user-id') || '').trim()
+    const now = Date.now();
+    const ip = req.ip || req.connection?.remoteAddress || '';
     if (!sellerId && shop) {
       const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
       if (s) sellerId = String(s.userId)
     }
     if (!sellerId) sellerId = String(ADMIN_USER_ID)
+
+    // Throttling: check lock status before DB work
+    const key = attemptKey(sellerId, email, ip);
+    let entry = loginAttempts.get(key);
+    if (entry) {
+      // reset window if expired
+      if (entry.firstAt && (now - entry.firstAt) > LOGIN_WINDOW_MS) {
+        entry = { count: 0, firstAt: now, lockUntil: 0 };
+        loginAttempts.set(key, entry);
+      }
+    }
+    if (isLocked(entry, now)) {
+      const retryAfterSec = Math.ceil((entry.lockUntil - now) / 1000);
+      res.set('Retry-After', String(retryAfterSec));
+      return res.status(429).json({ error: 'Too many failed attempts. Try again later.' });
+    }
+
     const doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
-    if (!doc) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!doc) {
+      // count a failure
+      const curr = loginAttempts.get(key) || { count: 0, firstAt: now, lockUntil: 0 };
+      if (!curr.firstAt || (now - curr.firstAt) > LOGIN_WINDOW_MS) {
+        curr.firstAt = now; curr.count = 0; curr.lockUntil = 0;
+      }
+      curr.count += 1;
+      if (curr.count >= LOGIN_MAX_ATTEMPTS) {
+        curr.lockUntil = now + LOGIN_LOCKOUT_MS;
+      }
+      loginAttempts.set(key, curr);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     const ok = await bcrypt.compare(password, doc.passwordHash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!ok) {
+      const curr = loginAttempts.get(key) || { count: 0, firstAt: now, lockUntil: 0 };
+      if (!curr.firstAt || (now - curr.firstAt) > LOGIN_WINDOW_MS) {
+        curr.firstAt = now; curr.count = 0; curr.lockUntil = 0;
+      }
+      curr.count += 1;
+      if (curr.count >= LOGIN_MAX_ATTEMPTS) {
+        curr.lockUntil = now + LOGIN_LOCKOUT_MS;
+      }
+      loginAttempts.set(key, curr);
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // success: clear attempts
+    if (loginAttempts.has(key)) loginAttempts.delete(key);
     const user = { id: doc.id, name: doc.name, email: doc.email };
     const token = sign(user);
     res.json({ token, user });

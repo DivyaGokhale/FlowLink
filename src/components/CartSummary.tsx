@@ -52,6 +52,7 @@ const CartSummary: React.FC = () => {
   const clearCart = () => {
     setCartItems([]);
     localStorage.setItem("cart", "[]");
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
   };
 
   // 🧮 Pricing
