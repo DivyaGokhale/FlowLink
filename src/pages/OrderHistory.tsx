@@ -114,7 +114,6 @@ const OrderHistory: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <>
-        <Header />
         <main className="min-h-screen bg-gray-50 p-4 md:p-6 animate-fade-in-up">
           <div className="max-w-3xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-card rounded-lg p-6 text-center">
             <h1 className="text-xl md:text-2xl font-semibold mb-2">Your Orders</h1>
@@ -142,7 +141,6 @@ const OrderHistory: React.FC = () => {
 
   return (
     <>
-      <Header />
       <main className="min-h-screen bg-gray-50 p-4 md:p-6 animate-fade-in-up">
         <div className="max-w-6xl mx-auto bg-white/90 backdrop-blur border border-gray-100 shadow-card rounded-lg p-4 md:p-6">
           {loading && (
