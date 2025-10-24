@@ -6,7 +6,7 @@ import { useToast } from "../components/ToastContext";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 
-// Product shape coming from admin API (flowlink/server)
+// Product shape coming from admin API
 interface ProductDoc {
   _id: string;
   title?: string;
@@ -24,6 +24,18 @@ const currency = (n: number | string | undefined) => {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v || 0);
 };
 
+// Cache full product lists by shop to speed up navigation
+const shopCache: Map<string, ProductDoc[]> = new Map();
+const getSessionCache = (key: string): ProductDoc[] | null => {
+  try {
+    const raw = sessionStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as ProductDoc[]) : null;
+  } catch { return null; }
+};
+const setSessionCache = (key: string, value: ProductDoc[]) => {
+  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch {}
+};
+
 const Shop: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<ProductDoc[]>([]);
@@ -35,6 +47,7 @@ const Shop: React.FC = () => {
   const [maxPrice, setMaxPrice] = useState<number | undefined>(undefined);
   const [params] = useSearchParams();
   const { shop } = useParams<{ shop?: string }>();
+  const [fallback, setFallback] = useState<ProductDoc[]>([]);
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { vipEligible } = useAuth();
@@ -47,23 +60,36 @@ const Shop: React.FC = () => {
   }, [params]);
 
   useEffect(() => {
-    let ignore = false;
+    let cancelled = false;
+    const key = `shop:${shop || '_'}`;
+    const cached = shopCache.get(key) || getSessionCache(key);
+    if (cached && cached.length) {
+      setProducts(cached);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    const controller = new AbortController();
     const load = async () => {
       try {
-        setLoading(true);
         const qs = shop ? `?shop=${encodeURIComponent(shop)}` : "";
-        const res = await fetch(`${baseUrl}/products${qs}`);
+        const res = await fetch(`${baseUrl}/products${qs}`, { signal: controller.signal });
+        if (!res.ok) throw new Error('api');
         const data: ProductDoc[] = await res.json();
-        if (ignore) return;
-        setProducts(Array.isArray(data) ? data : []);
-      } catch (e) {
-        // non-blocking
+        if (cancelled) return;
+        const arr = Array.isArray(data) ? data : [];
+        shopCache.set(key, arr);
+        setSessionCache(key, arr);
+        setProducts(arr);
+      } catch (_) {
+        // keep existing products/cached if API fails
       } finally {
-        if (!ignore) setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
-    return () => { ignore = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [baseUrl, shop]);
 
   const priceBounds = useMemo(() => {
@@ -129,6 +155,74 @@ const Shop: React.FC = () => {
 
     return list;
   }, [products, search, selectedCats, inStockOnly, minPrice, maxPrice, sortBy]);
+
+  // Final list to render: prefer filtered visible; otherwise use fallback featured
+  const display = visible.length ? visible : fallback;
+
+  // Load featured products as a fallback when no results found
+  useEffect(() => {
+    const needFallback = !loading && visible.length === 0;
+    if (!needFallback) { setFallback([]); return; }
+    let cancelled = false;
+    const inferCategory = (name: string): string => {
+      const n = name.toLowerCase();
+      if (/milk|curd|paneer|cheese|butter|dairy|bread|egg/.test(n)) return "Dairy, Bread & Eggs";
+      if (/juice|cola|soda|drink|beverage|cold\s*drink/.test(n)) return "Cold Drinks & Juices";
+      if (/rice|atta|flour|maida|dal|lentil|grain|poha|sooji|rava|besan/.test(n)) return "Rice, Atta & Grains";
+      if (/sugar|jaggery|salt/.test(n)) return "Sugar, Jaggery & Salt";
+      if (/masala|spice|turmeric|chilli|cumin|coriander|garam/.test(n)) return "Masale & Spices";
+      if (/biscuit|cookie|snack|chips|namkeen/.test(n)) return "Biscuits & Snacks";
+      if (/tea|coffee/.test(n)) return "Tea, Coffee & Beverages";
+      if (/oil|ghee|mustard|sunflower|refined/.test(n)) return "Oil & Ghee";
+      if (/soap|shampoo|toothpaste|tooth\s*brush|face\s*wash|cream|lotion/.test(n)) return "Personal Care";
+      if (/detergent|cleaner|phenyl|dishwash|mop|broom|harpic/.test(n)) return "Household Cleaning";
+      return "Others";
+    };
+    (async () => {
+      try {
+        const res = await fetch('/products.json');
+        if (!res.ok) return;
+        const arr: any[] = await res.json();
+        if (cancelled) return;
+        const mapped: ProductDoc[] = (arr || []).map((d) => ({
+          _id: String(d._id || d.id || Math.random()),
+          title: d.title || d.name || 'Untitled',
+          price: typeof d.price === 'number' ? d.price : (d.price ? Number(d.price) : 0),
+          mrp: typeof d.mrp === 'number' ? d.mrp : (d.mrp ? Number(d.mrp) : undefined),
+          category: d.category || inferCategory(String(d.title || d.name || '')),
+          images: Array.isArray(d.images) && d.images.length ? d.images : (d.image ? [d.image] : []),
+          description: d.description || d.desc,
+          quantity: typeof d.quantity === 'number' ? d.quantity : undefined,
+        }));
+        setFallback(mapped);
+      } catch (_) {
+        // silent fallback error
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [loading, visible]);
+
+  // Reveal-on-scroll animation for product cards (presentation only)
+  useEffect(() => {
+    // Delay to the next frame to ensure DOM is painted
+    const raf = requestAnimationFrame(() => {
+      const nodes = Array.from(document.querySelectorAll<HTMLElement>(".reveal-card"));
+      if (!nodes.length) return;
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) {
+              e.target.classList.add("reveal-in");
+              io.unobserve(e.target);
+            }
+          }
+        },
+        { root: null, rootMargin: "0px 0px -10% 0px", threshold: 0.1 }
+      );
+      nodes.forEach((n) => io.observe(n));
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [visible, loading, fallback]);
 
   const toggleCategory = (c: string) => {
     const next = new Set(selectedCats);
@@ -246,24 +340,25 @@ const Shop: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="text-sm text-gray-600 mb-3">{visible.length} results</div>
-                {visible.length === 0 ? (
+                <div className="text-sm text-gray-600 mb-3">{display.length} results</div>
+                {display.length === 0 ? (
                   <div className="text-gray-600">No products match your filters.</div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                    {visible.map((p) => {
+                    {display.map((p, i) => {
                       const img = Array.isArray(p.images) && p.images.length ? p.images[0] : "/favicon.ico";
                       const base = Number((p as any).discountedPrice ?? p.price ?? 0);
                       const vipOff = vipEligible ? VIP_OFF : 0;
                       const finalPrice = Math.max(0, base - vipOff);
                       const mrp = Number(p.mrp || 0);
                       const discount = mrp && mrp > base ? Math.round(((mrp - base) / mrp) * 100) : 0;
+                      const delay = (i % 12) * 40; // gentle stagger
                       return (
                         <div key={p._id} className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col">
                           <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
-                            <img src={img} alt={p.title || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
+                            <img src={img} alt={p.title || (p as any).name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
                           </div>
-                          <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title}</div>
+                          <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || (p as any).name}</div>
                           <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
                           <div className="mt-2 flex items-baseline gap-2">
                             <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>

@@ -19,11 +19,12 @@ export interface Address {
 interface AddressContextType {
   addresses: Address[];
   selectedAddress: Address | null;
-  addAddress: (address: Omit<Address, 'id'>) => void;
-  updateAddress: (id: string, address: Partial<Address>) => void;
+  addAddress: (address: Omit<Address, 'id'>) => string; // Returns the ID of the added address
+  updateAddress: (id: string, address: Partial<Omit<Address, 'id'>>) => void;
   deleteAddress: (id: string) => void;
   selectAddress: (id: string) => void;
   getDefaultAddress: () => Address | null;
+  setDefaultAddress: (id: string) => void; // New method to set default address
 }
 
 const AddressContext = createContext<AddressContextType | undefined>(undefined);
@@ -88,16 +89,38 @@ export const AddressProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // If this is the first address or marked as default, set as default
       if (prev.length === 0 || address.isDefault) {
         const updated = prev.map(addr => ({ ...addr, isDefault: false }));
-        return [...updated, { ...address, isDefault: true }];
+        const newAddresses = [...updated, { ...address, isDefault: true }];
+        // Update selected address if this is the first one or it's set as default
+        if (prev.length === 0 || address.isDefault) {
+          setSelectedAddress({ ...address, id });
+        }
+        return newAddresses;
       }
       return [...prev, address];
     });
+
+    return id; // Return the generated ID
   };
 
-  const updateAddress = (id: string, updates: Partial<Address>) => {
-    setAddresses(prev => prev.map(addr =>
-      addr.id === id ? { ...addr, ...updates } : addr
-    ));
+  const updateAddress = (id: string, updates: Partial<Omit<Address, 'id'>>) => {
+    setAddresses(prev => {
+      const updated = prev.map(addr => {
+        if (addr.id === id) {
+          const updatedAddr = { ...addr, ...updates };
+          // If this address is being set as default, update the selected address
+          if (updates.isDefault) {
+            setSelectedAddress(updatedAddr);
+          }
+          return updatedAddr;
+        }
+        // If another address was set as default, unset it
+        if (updates.isDefault === true && addr.isDefault) {
+          return { ...addr, isDefault: false };
+        }
+        return addr;
+      });
+      return updated;
+    });
   };
 
   const deleteAddress = (id: string) => {
@@ -119,6 +142,23 @@ export const AddressProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const setDefaultAddress = (id: string) => {
+    setAddresses(prev => {
+      // Update the addresses array to set the specified address as default
+      // and unset any other default addresses
+      return prev.map(addr => ({
+        ...addr,
+        isDefault: addr.id === id
+      }));
+    });
+    
+    // Update the selected address to the new default
+    const newDefault = addresses.find(addr => addr.id === id);
+    if (newDefault) {
+      setSelectedAddress(newDefault);
+    }
+  };
+
   const getDefaultAddress = () => {
     return addresses.find(addr => addr.isDefault) || addresses[0] || null;
   };
@@ -131,6 +171,7 @@ export const AddressProvider: React.FC<{ children: React.ReactNode }> = ({ child
     deleteAddress,
     selectAddress,
     getDefaultAddress,
+    setDefaultAddress,
   };
 
   return (

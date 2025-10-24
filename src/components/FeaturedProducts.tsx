@@ -64,7 +64,7 @@ const FeaturedProducts: React.FC = () => {
 
   if (loading) {
     return (
-      <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+      <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up scroll-mt-24 md:scroll-mt-28">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
           {Array.from({ length: 12 }).map((_, i) => (
@@ -81,7 +81,7 @@ const FeaturedProducts: React.FC = () => {
   }
 
   return (
-    <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+    <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up scroll-mt-24 md:scroll-mt-28">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
         {products.map((product) => {

@@ -90,14 +90,8 @@ const OrderHistory: React.FC = () => {
         }));
         setOrders(normalized);
       } catch (e: any) {
-        setError(e?.message || "Failed to fetch orders. Showing local data if available.");
-        try {
-          const raw = localStorage.getItem("orderHistory");
-          const parsed: OrderRecord[] = raw ? JSON.parse(raw) : [];
-          setOrders(parsed);
-        } catch {
-          setOrders([]);
-        }
+        setError(e?.message || "Failed to fetch orders. Please try again later.");
+        setOrders([]);
       } finally {
         setLoading(false);
       }

@@ -5,12 +5,22 @@ import { useNavigate } from "react-router-dom";
 interface BackButtonProps {
   confirmOnPayment?: boolean; // special case for PaymentPage
   fallbackPath?: string;      // optional fixed fallback (e.g., /cart)
+  onClick?: () => void;       // custom click handler
 }
 
-const BackButton: React.FC<BackButtonProps> = ({ confirmOnPayment, fallbackPath }) => {
+const BackButton: React.FC<BackButtonProps> = ({ 
+  confirmOnPayment, 
+  fallbackPath, 
+  onClick 
+}) => {
   const navigate = useNavigate();
 
   const handleBack = () => {
+    if (onClick) {
+      onClick();
+      return;
+    }
+
     if (confirmOnPayment) {
       const confirm = window.confirm(
         "⚠️ Going back may discard entered payment details. Do you want to continue?"

@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import { useNavigate } from 'react-router-dom';
+import { apiService } from '../lib/api';
 import { app } from "../lib/firebase";
 import {
   getAuth,
@@ -12,6 +14,7 @@ interface User {
   id: string;
   name?: string;
   email: string;
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -19,12 +22,18 @@ interface AuthContextType {
   token: string | null;
   isAuthenticated: boolean;
   vipEligible: boolean;
+  isLoading: boolean;
+  error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (payload: { name?: string; email: string; password: string }) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithMicrosoft: () => Promise<void>;
   logout: () => void;
   hydrated: boolean;
+  clearError: () => void;
+  updateEmail: (newEmail: string, password: string) => Promise<void>;
+  updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  updateProfile: (updates: { displayName?: string; phone?: string }) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +43,114 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [vipEligible, setVipEligible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const clearError = () => setError(null);
+
+  const updateEmail = async (newEmail: string, password: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      setIsLoading(true);
+      // In a real app, you would verify the current password first
+      // Then update the email through your authentication provider
+      const response = await fetch(`${API_BASE}/auth/update-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          newEmail,
+          password
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update email');
+      }
+
+      // Update local user state
+      setUser(prev => prev ? { ...prev, email: newEmail } : null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to update email');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updatePassword = async (currentPassword: string, newPassword: string) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${API_BASE}/auth/update-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          email: user.email,
+          currentPassword,
+          newPassword
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update password');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password');
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateProfile = async (updates: { displayName?: string; phone?: string }) => {
+    if (!user) throw new Error('User not authenticated');
+    
+    try {
+      setIsLoading(true);
+      
+      // Call the API to update the profile
+      const response = await apiService.updateProfile(user.id, updates);
+      
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update profile');
+      }
+      
+      // Update local user state with the new data
+      setUser(prev => (prev ? { ...prev, ...updates } : null));
+      
+      // Update localStorage if needed
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        const parsedAuth = JSON.parse(authData);
+        localStorage.setItem('auth', JSON.stringify({
+          ...parsedAuth,
+          user: {
+            ...parsedAuth.user,
+            ...updates
+          }
+        }));
+      }
+      
+      return true;
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to update profile';
+      setError(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem("auth");
@@ -42,7 +159,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed = JSON.parse(saved);
         setUser(parsed.user || null);
         setToken(parsed.token || null);
-      } catch {}
+      } catch (err) {
+        console.error("Error loading auth from localStorage:", err);
+        setError("Failed to load authentication data");
+      }
     }
     setHydrated(true);
   }, []);
@@ -92,41 +212,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const login = async (email: string, password: string) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, shop: guessShop() || undefined }),
-    });
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || "Login failed");
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, shop: guessShop() || undefined }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || "Login failed");
+      }
+      
+      const data = await res.json();
+      setToken(data.token);
+      setUser(data.user);
+      await refreshEligibility(data?.user?.email);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Login failed";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
-    const data = await res.json();
-    setToken(data.token);
-    setUser(data.user);
-    await refreshEligibility(data?.user?.email);
   };
 
   const register = async (payload: { name?: string; email: string; password: string }) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, shop: guessShop() || undefined }),
-    });
-    if (!res.ok) {
-      const msg = await res.text();
-      throw new Error(msg || "Registration failed");
-    }
-    // Some backends return token+user on register; support both flows
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      const data = await res.json();
-      if (data?.token && data?.user) {
-        setToken(data.token);
-        setUser(data.user);
-        await refreshEligibility(data?.user?.email);
+      const res = await fetch(`${API_BASE}/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, shop: guessShop() || undefined }),
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || "Registration failed");
       }
-    } catch {
-      // No JSON body (e.g., 204). It's fine; user can log in next.
+      
+      // Some backends return token+user on register; support both flows
+      try {
+        const data = await res.json();
+        if (data?.token && data?.user) {
+          setToken(data.token);
+          setUser(data.user);
+          await refreshEligibility(data?.user?.email);
+        }
+      } catch {
+        // No JSON body (e.g., 204). It's fine; user can log in next.
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Registration failed";
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -158,13 +304,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     localStorage.removeItem("auth");
+    localStorage.removeItem("cart"); // Clear cart from localStorage
+    
+    // Dispatch a custom event to notify other components about logout
+    window.dispatchEvent(new Event('userLoggedOut'));
+    
     setVipEligible(false);
   };
 
-  const value = useMemo(
-    () => ({ user, token, isAuthenticated: Boolean(token), vipEligible, login, register, loginWithGoogle, loginWithMicrosoft, logout, hydrated }),
-    [user, token, hydrated, vipEligible]
-  );
+  const value = {
+    user,
+    token,
+    isAuthenticated: !!user,
+    vipEligible,
+    isLoading,
+    error,
+    login,
+    register,
+    loginWithGoogle,
+    loginWithMicrosoft,
+    logout,
+    hydrated,
+    clearError,
+    updateEmail,
+    updatePassword,
+    updateProfile,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

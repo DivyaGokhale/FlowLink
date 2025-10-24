@@ -127,3 +127,28 @@
     @apply rounded-md bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer;
   }
 }
+
+/* Myntra-like swipe-in reveal for product cards */
+@layer utilities {
+  @keyframes myntra-swipe {
+    0% { opacity: 0; transform: translateY(16px) translateX(8px) scale(0.98); }
+    60% { opacity: 1; transform: translateY(-2px) translateX(0) scale(1.0); }
+    100% { opacity: 1; transform: translateY(0) translateX(0) scale(1.0); }
+  }
+  .reveal-card {
+    opacity: 0;
+    transform: translateY(16px) translateX(8px);
+  }
+  .reveal-card.reveal-in {
+    animation: myntra-swipe 0.55s var(--transition-smooth) both;
+    animation-delay: var(--reveal-delay, 0ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reveal-card, .reveal-card.reveal-in {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+  }
+}

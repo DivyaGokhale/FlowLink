@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useToast } from "../components/ToastContext"; // ✅ import toast
+import { motion, AnimatePresence } from "framer-motion";
+import { useToast } from "../components/ToastContext";
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
+import { fadeIn, scaleVariants } from "../lib/animations";
 
 interface Product {
   _id: string;
@@ -66,82 +68,148 @@ const ProductShowcase: React.FC = () => {
     showToast(`✅ ${product.name} added to cart`);
   };
 
-  if (loading) {
-    return (
-      <section className="w-full bg-white py-12 animate-fade-in-up">
-        <div className="max-w-7xl px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-3xl font-normal mb-2">Your Go-To Items</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-2xl shadow-card p-4">
-                <Skeleton className="aspect-square w-full rounded-lg" />
-                <Skeleton className="h-4 w-3/4 mt-3" />
-                <Skeleton className="h-3 w-1/2 mt-2" />
-                <Skeleton className="h-8 w-full mt-3 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
+  // Animation variants with proper TypeScript types
+  const getFadeInVariant = (index: number) => ({
+    hidden: { 
+      opacity: 0, 
+      y: 20 
+    },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
+        delay: i * 0.05,
+        duration: 0.5,
+        ease: [0.22, 1, 0.36, 1] as const
+      }
+    })
+  });
 
   return (
-    <section className="w-full bg-white py-12 animate-fade-in-up">
-      <div className="max-w-7xl px-4 sm:px-6 lg:px-8">
-        <h2 className="text-2xl sm:text-3xl font-normal mb-2">Your Go-To Items</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
-          {products.map((item) => {
-            const hasDiscount = item.mrp && item.mrp > (item.price || 0)
-            const discount = hasDiscount ? Math.round(((item.mrp! - item.price) / item.mrp!) * 100) : 0
-            return (
-              <div
-                key={item._id}
-                className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 p-4 flex flex-col"
-              >
-                {/* Product Image */}
-                <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="w-full outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 rounded-lg">
-                  <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 overflow-hidden flex items-center justify-center">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      width={160}
-                      height={160}
-                      loading="lazy"
-                      decoding="async"
-                      className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]"
-                    />
+    <div className="w-full bg-white py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 className="text-2xl sm:text-3xl font-normal mb-8">Your Go-To Items</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {loading ? (
+            <AnimatePresence>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <motion.div 
+                  key={i}
+                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: i * 0.05 }}
+                >
+                  <Skeleton className="h-48 w-full" />
+                  <div className="p-4">
+                    <Skeleton className="h-6 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2" />
                   </div>
-                </Link>
-                {/* Title */}
-                <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[38px]">{item.name}</div>
-                {/* Category/Pack */}
-                <div className="text-xs text-gray-500">{item.category || item.pack || 'Others'}</div>
-                {/* Price Row */}
-                <div className="mt-2 flex items-baseline gap-2">
-                  <div className="text-lg font-semibold text-gray-900">₹{item.price}</div>
-                  {hasDiscount && (
-                    <>
-                      <div className="text-xs line-through text-gray-400">₹{item.mrp}</div>
-                      <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
-                    </>
-                  )}
-                </div>
-                {/* Actions */}
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Link to={`${shop ? `/${shop}` : ""}/product/${item._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25">
-                    View
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          ) : (
+            <AnimatePresence>
+              {products.map((product, index) => (
+                <motion.div 
+                  key={product._id}
+                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300"
+                  variants={getFadeInVariant(index)}
+                  initial="hidden"
+                  animate="visible"
+                  custom={index}
+                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  whileTap={{ scale: 0.98 }}
+                  layout
+                >
+                  <Link to={`/product/${product._id}`} className="block">
+                    <motion.div 
+                      className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden relative group"
+                      whileHover={{ scale: 1.03 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      {product.image ? (
+                        <motion.img
+                          src={product.image}
+                          alt={product.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.5 }}
+                        />
+                      ) : (
+                        <div className="text-gray-400">No Image</div>
+                      )}
+                      <motion.div 
+                        className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"
+                        initial={{ opacity: 0 }}
+                        whileHover={{ opacity: 1 }}
+                      />
+                    </motion.div>
+                    <div className="p-4">
+                      <motion.h3 
+                        className="font-medium text-gray-900 mb-1 line-clamp-2 h-12"
+                        whileHover={{ color: '#2563eb' }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {product.name}
+                      </motion.h3>
+                      <div className="flex items-center justify-between mt-2">
+                        <div>
+                          <motion.span 
+                            className="text-lg font-semibold text-gray-900"
+                            whileHover={{ scale: 1.05 }}
+                          >
+                            ₹{product.price.toFixed(2)}
+                          </motion.span>
+                          {product.mrp && product.mrp > product.price && (
+                            <motion.span 
+                              className="ml-2 text-sm text-gray-500 line-through"
+                              initial={{ opacity: 0.8 }}
+                              whileHover={{ opacity: 1 }}
+                            >
+                              ₹{product.mrp.toFixed(2)}
+                            </motion.span>
+                          )}
+                        </div>
+                      </div>
+                      {product.pack && (
+                        <motion.div 
+                          className="mt-1 text-sm text-gray-500"
+                          initial={{ opacity: 0.8 }}
+                          whileHover={{ opacity: 1 }}
+                        >
+                          {product.pack}
+                        </motion.div>
+                      )}
+                    </div>
                   </Link>
-                  <button onClick={() => addToCart(item)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35">
-                    Add to Cart
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+                  <div className="px-4 pb-4">
+                    <motion.button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (!token) {
+                          showToast("Please login to add items to cart");
+                          return;
+                        }
+                        addToCart(product);
+                      }}
+                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
+                      whileHover={{ scale: 1.02, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
+                      whileTap={{ scale: 0.98 }}
+                      initial={false}
+                    >
+                      Add to Cart
+                    </motion.button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          )}
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

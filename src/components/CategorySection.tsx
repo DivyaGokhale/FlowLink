@@ -88,7 +88,7 @@ const CategorySection: React.FC = () => {
         {categories.map((cat) => (
           <div
             key={cat.id}
-            onClick={() => navigate(`${shop ? `/${shop}` : ""}/shop?category=${encodeURIComponent(cat.name)}`)}
+            onClick={() => navigate(`${shop ? `/${shop}` : ""}/category/${encodeURIComponent(cat.name)}`)}
             role="button"
             aria-label={cat.name}
             className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/30 animate-scale-in"

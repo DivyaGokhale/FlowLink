@@ -1,6 +1,4 @@
 import React from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import BackButton from "../components/BackButton";
 import { useAuth } from "../components/AuthContext";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,7 +10,7 @@ const Profile: React.FC = () => {
 
   const email = user?.email || "not-set@example.com";
   const name = user?.name || (email !== "not-set@example.com" ? email.split("@")[0] : "Guest");
-  const phone = (user as any)?.phone || "Not provided";
+  const phone = user?.phone || "Not provided";
   const initials = name
     .split(" ")
     .map((n: string) => n[0])
@@ -23,15 +21,14 @@ const Profile: React.FC = () => {
   const go = (path: string) => navigate(shop ? `/${shop}${path}` : path);
 
   return (
-    <>
-      <Header />
+    <div className="min-h-screen">
       <BackButton fallbackPath={shop ? `/${shop}` : "/"} />
       <main className="min-h-screen bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 py-8">
           {/* Top Card: Greeting */}
           <div className="bg-white border border-gray-100 rounded-xl p-6 shadow-card mb-6">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xl font-semibold">
+              <div className="w-16 h-16 rounded-full bg-green-600 text-white flex items-center justify-center text-xl font-semibold">
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
@@ -42,7 +39,7 @@ const Profile: React.FC = () => {
               {isAuthenticated && (
                 <button
                   onClick={logout}
-                  className="h-9 px-4 rounded-full border border-gray-300 hover:bg-gray-50 text-sm"
+                  className="h-9 px-4 rounded-full border border-gray-300 bg-green-500 hover:bg-green-600 text-black hover:brightness-95 text-sm shadow-button"
                 >
                   Sign out
                 </button>
@@ -50,7 +47,7 @@ const Profile: React.FC = () => {
             </div>
           </div>
 
-          {/* Grid like Amazon Account page */}
+          {/* Grid like Account page */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {/* Your Orders */}
             <section className="bg-white border border-gray-100 rounded-xl p-5 shadow-card">
@@ -58,7 +55,7 @@ const Profile: React.FC = () => {
               <p className="text-sm text-gray-600 mb-3">Track, return, or buy things again.</p>
               <button
                 onClick={() => go("/orders")}
-                className="h-9 px-4 rounded-full bg-[hsl(var(--primary))] text-white hover:brightness-95 text-sm shadow-button"
+                className="h-9 px-4 rounded-full bg-green-600 text-white hover:brightness-95 text-sm shadow-button"
               >
                 View Orders
               </button>
@@ -69,8 +66,8 @@ const Profile: React.FC = () => {
               <h2 className="text-base font-semibold mb-1">Login & Security</h2>
               <p className="text-sm text-gray-600 mb-3">Edit login, name, and mobile number.</p>
               <button
-                disabled
-                className="h-9 px-4 rounded-full border border-gray-300 text-sm text-gray-500 cursor-not-allowed"
+                onClick={() => navigate(shop ? `/${shop}/account/login-security` : '/account/login-security')}
+                className="h-9 px-4 rounded-full bg-green-600 text-white hover:brightness-95 text-sm shadow-button"
               >
                 Manage
               </button>
@@ -81,8 +78,8 @@ const Profile: React.FC = () => {
               <h2 className="text-base font-semibold mb-1">Your Addresses</h2>
               <p className="text-sm text-gray-600 mb-3">Edit addresses for orders and gifts.</p>
               <button
-                onClick={() => go("/addToCart")}
-                className="h-9 px-4 rounded-full border border-gray-300 hover:bg-gray-50 text-sm"
+                onClick={() => go("/account/addresses")}
+                className="h-9 px-4 rounded-full bg-green-600 text-white hover:brightness-95 text-sm shadow-button"
               >
                 Manage Addresses
               </button>
@@ -93,41 +90,17 @@ const Profile: React.FC = () => {
               <h2 className="text-base font-semibold mb-1">Payment Options</h2>
               <p className="text-sm text-gray-600 mb-3">Add or edit payment methods.</p>
               <button
-                onClick={() => go("/payment")}
-                className="h-9 px-4 rounded-full border border-gray-300 hover:bg-gray-50 text-sm"
+                onClick={() => navigate(shop ? `/${shop}/account/payments` : '/account/payments')}
+                className="h-9 px-4 rounded-full bg-green-600 text-white hover:brightness-95 text-sm shadow-button"
               >
                 Manage Payments
               </button>
             </section>
 
-            {/* Contact Preferences */}
-            <section className="bg-white border border-gray-100 rounded-xl p-5 shadow-card">
-              <h2 className="text-base font-semibold mb-1">Contact Preferences</h2>
-              <p className="text-sm text-gray-600 mb-3">Choose what we contact you about.</p>
-              <button
-                disabled
-                className="h-9 px-4 rounded-full border border-gray-300 text-sm text-gray-500 cursor-not-allowed"
-              >
-                Manage Preferences
-              </button>
-            </section>
-
-            {/* Prime-like badge (informational) */}
-            <section className="bg-white border border-gray-100 rounded-xl p-5 shadow-card">
-              <h2 className="text-base font-semibold mb-1">Membership</h2>
-              <p className="text-sm text-gray-600 mb-3">View your benefits and offers.</p>
-              <button
-                disabled
-                className="h-9 px-4 rounded-full border border-gray-300 text-sm text-gray-500 cursor-not-allowed"
-              >
-                View Details
-              </button>
-            </section>
           </div>
         </div>
       </main>
-      <Footer />
-    </>
+    </div>
   );
 };
 

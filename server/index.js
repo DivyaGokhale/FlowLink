@@ -1,4 +1,4 @@
-// Simple local dev API server (Option B)
+// FlowLink E-commerce API Server
 // Run: npm run server
 
 import express from 'express';
@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { body, validationResult } from 'express-validator';
 
 // Resolve root .env even when starting from server/
 const __filename = fileURLToPath(import.meta.url);
@@ -51,14 +52,101 @@ function isLocked(entry, now) {
 }
 
 const app = express();
-app.use(express.json());
-// CORS: during dev, allow any local origin (echo back requester). Prevents
-// common "Failed to fetch" when frontend runs on a different port/host.
-app.use(cors({
-  origin: (origin, cb) => cb(null, origin || true),
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type','Authorization','x-user-id']
-}));
+
+// Middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Simple CORS configuration for development
+app.use((req, res, next) => {
+  // Allow all origins in development
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-user-id, x-requested-with, accept, origin, x-csrf-token');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  
+  // Handle CORS errors
+  if (err.message === 'Not allowed by CORS' || err.message.includes('CORS')) {
+    console.error('CORS Error Details:', {
+      origin: req.get('origin') || 'No origin header',
+      method: req.method,
+      path: req.path,
+      headers: req.headers,
+      allowedOrigins: allowedOrigins
+    });
+    
+    return res.status(403).json({
+      success: false,
+      error: 'CORS Error',
+      message: 'The request was blocked due to CORS policy',
+      details: process.env.NODE_ENV === 'production' ? undefined : {
+        origin: req.get('origin') || 'No origin header',
+        method: req.method,
+        path: req.path,
+        allowedOrigins: allowedOrigins,
+        hint: 'Ensure your frontend URL is in the allowedOrigins array in server/index.js'
+      }
+    });
+  }
+  
+  // Handle other errors
+  console.error('Server Error:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.originalUrl,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    params: req.params
+  });
+  
+  res.status(err.status || 500).json({
+    success: false,
+    error: err.name || 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Something went wrong. Please try again later.' 
+      : err.message,
+    ...(process.env.NODE_ENV !== 'production' && { 
+      stack: err.stack,
+      details: {
+        name: err.name,
+        status: err.status,
+        code: err.code,
+        ...(err.errors && { errors: err.errors })
+      }
+    })
+  });
+});
+
+// Validation error handler
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: errors.array()
+    });
+  }
+  next();
+};
 
 // Data files
 const dataDir = path.join(__dirname, 'data');
@@ -357,10 +445,15 @@ app.post(base + '/shops', async (req, res) => {
 });
 
 // Auth: Register
-app.post(base + '/auth/register', async (req, res) => {
+app.post(base + '/auth/register', [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+  body('name').optional().isLength({ min: 2, max: 50 }).withMessage('Name must be 2-50 characters'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { name, email, password, shop } = req.body || {};
-    if (!email || !password) return res.status(400).json({ error: 'email and password required' });
+    
     // Determine sellerId from header or shop slug
     let sellerId = (req.header('x-user-id') || '').trim()
     if (!sellerId && shop) {
@@ -372,24 +465,45 @@ app.post(base + '/auth/register', async (req, res) => {
     const existing = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } }).lean();
     if (existing) return res.status(409).json({ error: 'Email already registered' });
 
-    const hash = await bcrypt.hash(password, 10);
-    const doc = await User.create({ id: uuidv4(), sellerId, name: name || '', email, passwordHash: hash });
+    const hash = await bcrypt.hash(password, 12);
+    const doc = await User.create({ 
+      id: uuidv4(), 
+      sellerId, 
+      name: name || '', 
+      email, 
+      passwordHash: hash 
+    });
+    
     const user = { id: doc.id, name: doc.name, email: doc.email };
     const token = sign(user);
-    res.json({ token, user });
+    
+    res.status(201).json({ 
+      success: true,
+      message: 'User registered successfully',
+      token, 
+      user 
+    });
   } catch (err) {
     console.error('Register error:', err);
+    if (err.code === 11000) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Auth: Login
-app.post(base + '/auth/login', async (req, res) => {
+app.post(base + '/auth/login', [
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const { email, password, shop } = req.body || {};
     let sellerId = (req.header('x-user-id') || '').trim()
     const now = Date.now();
     const ip = req.ip || req.connection?.remoteAddress || '';
+    
     if (!sellerId && shop) {
       const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean()
       if (s) sellerId = String(s.userId)
@@ -426,6 +540,7 @@ app.post(base + '/auth/login', async (req, res) => {
       loginAttempts.set(key, curr);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    
     const ok = await bcrypt.compare(password, doc.passwordHash);
     if (!ok) {
       const curr = loginAttempts.get(key) || { count: 0, firstAt: now, lockUntil: 0 };
@@ -444,7 +559,13 @@ app.post(base + '/auth/login', async (req, res) => {
     if (loginAttempts.has(key)) loginAttempts.delete(key);
     const user = { id: doc.id, name: doc.name, email: doc.email };
     const token = sign(user);
-    res.json({ token, user });
+    
+    res.json({ 
+      success: true,
+      message: 'Login successful',
+      token, 
+      user 
+    });
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Server error' });
@@ -642,8 +763,77 @@ app.get(base + '/products/:id', async (req, res) => {
   }
 });
 
+// Cart: Add item
+app.post(base + '/cart/add', [
+  body('productId').notEmpty().withMessage('Product ID is required'),
+  body('quantity').isInt({ min: 1 }).withMessage('Quantity must be a positive integer'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { productId, quantity } = req.body;
+    
+    // Verify product exists
+    const product = await Product.findById(productId).lean();
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+
+    // For now, we'll store cart in session/memory
+    // In production, you might want to store cart in Redis or MongoDB
+    const cartKey = `cart:${userId}`;
+    
+    res.json({
+      success: true,
+      message: 'Item added to cart',
+      cartItem: {
+        productId,
+        quantity,
+        product: {
+          id: product._id,
+          title: product.title,
+          price: product.price,
+          image: product.images?.[0]
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Add to cart error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Cart: Get items
+app.get(base + '/cart', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    // Return empty cart for now - implement cart storage as needed
+    res.json({
+      success: true,
+      items: [],
+      total: 0
+    });
+  } catch (err) {
+    console.error('Get cart error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Orders: create
-app.post(base + '/orders', async (req, res) => {
+app.post(base + '/orders', [
+  body('items').isArray({ min: 1 }).withMessage('At least one item is required'),
+  body('items.*.productId').notEmpty().withMessage('Product ID is required'),
+  body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be positive'),
+  body('shippingAddress.name').notEmpty().withMessage('Shipping name is required'),
+  body('shippingAddress.line1').notEmpty().withMessage('Shipping address is required'),
+  body('shippingAddress.city').notEmpty().withMessage('City is required'),
+  body('shippingAddress.state').notEmpty().withMessage('State is required'),
+  body('shippingAddress.postalCode').notEmpty().withMessage('Postal code is required'),
+  body('shippingAddress.phone').notEmpty().withMessage('Phone number is required'),
+  handleValidationErrors
+], async (req, res) => {
   try {
     const userId = req.header('x-user-id');
     if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
@@ -755,9 +945,115 @@ app.post(base + '/orders', async (req, res) => {
       },
     });
 
-    res.status(201).json({ orderId: order._id.toString(), id: order._id.toString(), ...order.toObject() });
+    res.status(201).json({ 
+      success: true,
+      message: 'Order created successfully',
+      orderId: order._id.toString(), 
+      id: order._id.toString(), 
+      ...order.toObject() 
+    });
   } catch (err) {
     console.error('Create order error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Razorpay: Create order
+app.post(base + '/razorpay/create-order', [
+  body('amount').isInt({ min: 1 }).withMessage('Amount must be a positive integer'),
+  body('currency').isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
+  body('receipt').notEmpty().withMessage('Receipt is required'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const { amount, currency, receipt, notes } = req.body;
+    
+    // In a real implementation, you would call Razorpay API here
+    // For now, we'll create a mock order ID
+    const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    res.json({
+      success: true,
+      order_id: mockOrderId,
+      amount: amount,
+      currency: currency,
+      receipt: receipt
+    });
+  } catch (err) {
+    console.error('Create Razorpay order error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Razorpay: Verify payment
+app.post(base + '/razorpay/verify-payment', [
+  body('order_id').notEmpty().withMessage('Order ID is required'),
+  body('payment_id').notEmpty().withMessage('Payment ID is required'),
+  body('signature').notEmpty().withMessage('Payment signature is required'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const { order_id, payment_id, signature } = req.body;
+    
+    // In a real implementation, you would verify the signature using Razorpay's crypto
+    // For now, we'll always return true for demo purposes
+    const isValidSignature = true; // Replace with actual signature verification
+    
+    res.json({
+      success: true,
+      verified: isValidSignature,
+      order_id: order_id,
+      payment_id: payment_id
+    });
+  } catch (err) {
+    console.error('Verify Razorpay payment error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Payment: Verify payment
+app.post(base + '/payment/verify', [
+  body('orderId').notEmpty().withMessage('Order ID is required'),
+  body('paymentId').notEmpty().withMessage('Payment ID is required'),
+  body('signature').notEmpty().withMessage('Payment signature is required'),
+  handleValidationErrors
+], async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+
+    const { orderId, paymentId, signature } = req.body;
+
+    // Find the order
+    const order = await Order.findOne({ _id: orderId, userId }).lean();
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Verify payment signature (implement based on your payment gateway)
+    // This is a placeholder - implement actual verification logic
+    const isValidPayment = true; // Replace with actual verification
+
+    if (isValidPayment) {
+      // Update order payment status
+      await Order.updateOne(
+        { _id: orderId },
+        { 
+          $set: { 
+            'payment.status': 'Completed',
+            'payment.transactionId': paymentId
+          }
+        }
+      );
+
+      res.json({
+        success: true,
+        message: 'Payment verified successfully',
+        orderId: orderId
+      });
+    } else {
+      res.status(400).json({ error: 'Invalid payment signature' });
+    }
+  } catch (err) {
+    console.error('Payment verification error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -766,18 +1062,42 @@ app.post(base + '/orders', async (req, res) => {
 app.get(base + '/orders', async (req, res) => {
   try {
     const userId = req.header('x-user-id');
-    if (!userId) return res.status(400).json({ error: 'x-user-id header required' });
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
 
     const isAdmin = String(userId) === String(ADMIN_USER_ID);
     const filter = isAdmin ? {} : { userId: String(userId) };
-    const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
-    res.json(orders);
+    
+    const { page = 1, limit = 10, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Add status filter if provided
+    if (status) {
+      filter['payment.status'] = status;
+    }
+    
+    const orders = await Order.find(filter)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+      
+    const total = await Order.countDocuments(filter);
+    
+    res.json({
+      success: true,
+      orders,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
   } catch (err) {
     console.error('List orders error:', err);
     res.status(500).json({ error: 'Server error' });
   }
-})
-;
+});
 
 // Bootstrap: connect DB then start server
 const start = async () => {

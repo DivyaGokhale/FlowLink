@@ -2,9 +2,15 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { useAddress } from "./AddressContext";
+import { useCart } from "./CartContext";
+import { useToast } from "./ToastContext";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import BackButton from "../components/BackButton";
+import Spinner from "./ui/Spinner";
+import { razorpayService, PaymentData } from "../lib/razorpay";
+import { apiService } from "../lib/api";
+import { formatPrice, getErrorMessage } from "../lib/utils";
 
 interface Product {
   id: number;
@@ -20,55 +26,47 @@ const PaymentPage: React.FC = () => {
   const { shop } = useParams<{ shop?: string }>();
   const { token, user } = useAuth();
   const { selectedAddress, addresses } = useAddress();
-  const [method, setMethod] = useState("upi");
+  const { cart, getTotalPrice, clearCart } = useCart();
+  const { showToast } = useToast();
+  
+  const [method, setMethod] = useState("razorpay");
   const [formData, setFormData] = useState<any>({});
-  const [cartItems, setCartItems] = useState<Product[]>([]);
   const [totals, setTotals] = useState({ subtotal: 0, gst: 0, delivery: 50, total: 0 });
   const [error, setError] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Load cart from localStorage and keep in sync without page refresh
+  // Calculate totals when cart or address changes
   useEffect(() => {
-    const computeTotals = (items: Product[]) => {
-      const subtotal = items.reduce((acc: number, it: Product) => acc + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0);
-      const gst = Math.round(subtotal * 0.05); // 5% GST
-      const delivery = Math.round((selectedAddress?.time === "25 mins" ? 3.0 : 5.0) * 10);
-      setTotals({ subtotal, gst, delivery, total: subtotal + gst + delivery });
-    };
-
-    const sync = () => {
-      try {
-        const stored = JSON.parse(localStorage.getItem("cart") || "[]");
-        setCartItems(stored);
-        computeTotals(stored);
-      } catch {
-        setCartItems([]);
-        computeTotals([]);
-      }
-    };
-
-    // initial
-    sync();
-    // update when address changes (affects delivery calc)
-    computeTotals(JSON.parse(localStorage.getItem("cart") || "[]"));
-    // listen for cross-component updates
-    window.addEventListener("cart-updated", sync as any);
-    window.addEventListener("storage", sync as any);
-    const onVisibility = () => { if (!document.hidden) sync(); };
-    window.addEventListener("visibilitychange", onVisibility);
-    return () => {
-      window.removeEventListener("cart-updated", sync as any);
-      window.removeEventListener("storage", sync as any);
-      window.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [selectedAddress]);
+    console.log("PaymentPage: Cart data:", cart);
+    console.log("PaymentPage: Cart length:", cart.length);
+    
+    const subtotal = getTotalPrice();
+    console.log("PaymentPage: Subtotal calculated:", subtotal);
+    
+    const gst = Math.round(subtotal * 0.05); // 5% GST
+    const delivery = selectedAddress?.time === "25 mins" ? 30 : 50;
+    const total = subtotal + gst + delivery;
+    
+    console.log("PaymentPage: Final totals:", { subtotal, gst, delivery, total });
+    
+    setTotals({ subtotal, gst, delivery, total });
+  }, [cart, selectedAddress, getTotalPrice]);
 
   const handleChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value });
   };
 
   const handleContinue = async () => {
+    if (isProcessing) return;
+    
     let valid = true;
     let errorMsg = "";
+
+    // Check if cart is empty
+    if (cart.length === 0) {
+      valid = false;
+      errorMsg = "Your cart is empty";
+    }
 
     // Check if address is selected
     if (!selectedAddress) {
@@ -76,62 +74,31 @@ const PaymentPage: React.FC = () => {
       errorMsg = "Please select a delivery address";
     }
 
-    // Basic payment validation
-    if (valid) {
-      if (method === "upi" && !formData.upi) {
-        valid = false;
-        errorMsg = "Please enter UPI ID";
-      }
-      if (method === "card" && (!formData.cardNumber || !formData.expiry || !formData.cvv || !formData.cardName)) {
-        valid = false;
-        errorMsg = "Please fill all card details";
-      }
-      if (method === "bank" && (!formData.account || !formData.ifsc || !formData.holder)) {
-        valid = false;
-        errorMsg = "Please fill all bank details";
-      }
-    }
-
     if (!valid) {
       setError(errorMsg);
+      showToast(errorMsg, "error");
       return;
     }
 
     setError("");
+    setIsProcessing(true);
 
-    // Save payment info in localStorage for Review Page
-    localStorage.setItem(
-      "paymentDetails",
-      JSON.stringify({ method, ...formData })
-    );
-
-    // Place order immediately after proceeding
     try {
-      const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
-      const ADMIN_ID = import.meta.env.VITE_ADMIN_USER_ID;
-      // Resolve sellerId: if shop slug present, fetch mapping; else fallback to env/admin user
-      let effectiveUserId = ADMIN_ID || user?.id || "";
-      if (shop) {
-        try {
-          const sres = await fetch(`${API_BASE}/shops/${encodeURIComponent(shop)}`);
-          if (sres.ok) {
-            const sdata = await sres.json();
-            if (sdata?.userId) effectiveUserId = String(sdata.userId);
-          }
-        } catch {}
-      }
-      if (!effectiveUserId) {
-        alert("Missing shop mapping or user ID. Please configure your shop.");
-        return;
-      }
+      console.log("PaymentPage: Creating order with data:", {
+        cartItems: cart,
+        totals,
+        selectedAddress,
+        user: user?.id
+      });
 
-      const payload = {
-        items: cartItems.map((it: any) => ({
-          productId: String((it as any)._id || (it as any).id || ""),
-          name: it.name,
-          price: Number(it.price),
-          quantity: Number(it.quantity),
-          image: (it as any).image || ""
+      // Create order first
+      const orderData = {
+        items: cart.map((item) => ({
+          productId: String(item.id),
+          name: item.name || item.title || "Unknown Product",
+          price: Number(item.price),
+          quantity: Number(item.quantity),
+          image: item.image || item.images?.[0] || "",
         })),
         totals,
         shippingAddress: {
@@ -148,54 +115,85 @@ const PaymentPage: React.FC = () => {
         customerEmail: user?.email || selectedAddress?.email || undefined,
         payment: {
           method,
-          status: method === "cod" ? "Pending" : "Completed",
-          transactionId: `TXN-${Date.now()}`
+          status: method === "cod" ? "Pending" : "Pending",
+          transactionId: "",
         },
       };
 
-      // Save snapshot for Review page display
-      try {
-        localStorage.setItem(
-          "orderPreview",
-          JSON.stringify({ items: payload.items, totals: payload.totals, payment: payload.payment })
-        );
-      } catch {}
+      console.log("PaymentPage: Order data to send:", orderData);
 
-      const res = await fetch(`${API_BASE}/orders`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-user-id": effectiveUserId,
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(msg || "Failed to place order");
+      // Create order in backend
+      const orderResponse = await apiService.createOrder(orderData, user?.id || "");
+      
+      console.log("PaymentPage: Order response:", orderResponse);
+      
+      if (!orderResponse.success) {
+        throw new Error(orderResponse.error || "Failed to create order");
       }
-      // Persist order locally for history
-      try {
-        const historyRaw = localStorage.getItem("orderHistory");
-        const history = historyRaw ? JSON.parse(historyRaw) : [];
-        const orderRecord = {
-          id: `ORD-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          ...payload,
+
+      const orderId = orderResponse.data?._id || orderResponse.orderId;
+
+      if (method === "cod") {
+        // For COD, just navigate to review page
+        navigate(shop ? `/${shop}/review` : "/review");
+        showToast("Order placed successfully!", "success");
+        clearCart();
+      } else {
+        // For online payments, initiate Razorpay
+        const paymentData: PaymentData = {
+          orderId,
+          amount: totals.total,
+          currency: "INR",
+          customerName: selectedAddress?.name || user?.name || "",
+          customerEmail: user?.email || selectedAddress?.email || "",
+          customerPhone: selectedAddress?.phone || "",
+          description: `Order #${orderId}`,
         };
-        const newHistory = [orderRecord, ...history].slice(0, 100); // cap to 100
-        localStorage.setItem("orderHistory", JSON.stringify(newHistory));
-      } catch {}
 
-      // Clear cart after successful order placement and notify listeners
-      localStorage.removeItem("cart");
-      try { window.dispatchEvent(new Event("cart-updated")); } catch {}
-    } catch (e: any) {
-      alert(e?.message || "Failed to place order");
-      return;
+        await razorpayService.initiatePayment(
+          paymentData,
+          async (response) => {
+            try {
+              // Verify payment
+              const isVerified = await razorpayService.verifyPayment(
+                response.razorpay_order_id,
+                response.razorpay_payment_id,
+                response.razorpay_signature
+              );
+
+              if (isVerified) {
+                // Update order with payment details
+                await apiService.verifyPayment(
+                  orderId,
+                  response.razorpay_payment_id,
+                  response.razorpay_signature,
+                  user?.id || ""
+                );
+
+                showToast("Payment successful! Order confirmed.", "success");
+                clearCart();
+                navigate(shop ? `/${shop}/review` : "/review");
+              } else {
+                throw new Error("Payment verification failed");
+              }
+            } catch (err) {
+              showToast(getErrorMessage(err), "error");
+            } finally {
+              setIsProcessing(false);
+            }
+          },
+          (error) => {
+            showToast(getErrorMessage(error), "error");
+            setIsProcessing(false);
+          }
+        );
+      }
+    } catch (err) {
+      const errorMessage = getErrorMessage(err);
+      setError(errorMessage);
+      showToast(errorMessage, "error");
+      setIsProcessing(false);
     }
-
-    navigate(shop ? `/${shop}/review` : "/review");
   };
 
   return (
@@ -253,22 +251,22 @@ const PaymentPage: React.FC = () => {
           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
             <h3 className="text-sm font-medium mb-2">Items in Cart</h3>
             <div className="space-y-2 max-h-32 overflow-y-auto">
-              {cartItems.slice(0, 3).map((item) => (
+              {cart.slice(0, 3).map((item) => (
                 <div key={item.id} className="flex items-center gap-2 text-sm">
                   <img
                     src={item.image || "/placeholder.jpg"}
-                    alt={item.name}
+                    alt={item.name || item.title}
                     className="w-8 h-8 object-cover rounded"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="truncate">{item.name}</p>
-                    <p className="text-xs text-gray-500">{item.quantity} × ₹{item.price}</p>
+                    <p className="truncate">{item.name || item.title}</p>
+                    <p className="text-xs text-gray-500">{item.quantity} × {formatPrice(item.price)}</p>
                   </div>
-                  <span className="font-medium">₹{item.quantity * item.price}</span>
+                  <span className="font-medium">{formatPrice(item.quantity * item.price)}</span>
                 </div>
               ))}
-              {cartItems.length > 3 && (
-                <p className="text-xs text-gray-500">+{cartItems.length - 3} more items</p>
+              {cart.length > 3 && (
+                <p className="text-xs text-gray-500">+{cart.length - 3} more items</p>
               )}
             </div>
           </div>
@@ -276,10 +274,8 @@ const PaymentPage: React.FC = () => {
           {/* Payment options */}
           <div className="space-y-3">
             {[
-              { value: "upi", label: "UPI Payment", icon: "📱" },
-              { value: "card", label: "Credit/Debit Card", icon: "💳" },
-              { value: "bank", label: "Net Banking", icon: "🏦" },
-              { value: "cod", label: "Cash on Delivery", icon: "💰" },
+              { value: "razorpay", label: "Online Payment (Razorpay)", icon: "💳", description: "Credit/Debit Card, UPI, Net Banking" },
+              { value: "cod", label: "Cash on Delivery", icon: "💰", description: "Pay when your order is delivered" },
             ].map((opt) => (
               <label
                 key={opt.value}
@@ -302,7 +298,12 @@ const PaymentPage: React.FC = () => {
                   className="mr-3 accent-green-500"
                 />
                 <span className="mr-2">{opt.icon}</span>
-                <span className="text-sm">{opt.label}</span>
+                <div className="flex-1">
+                  <span className="text-sm font-medium">{opt.label}</span>
+                  {opt.description && (
+                    <p className="text-xs text-gray-500 mt-1">{opt.description}</p>
+                  )}
+                </div>
               </label>
             ))}
           </div>
@@ -432,25 +433,33 @@ const PaymentPage: React.FC = () => {
             <div className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Items:</span>
-                <span>₹{totals.subtotal.toFixed(2)}</span>
+                <span>{formatPrice(totals.subtotal)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Delivery:</span>
-                <span>₹{totals.delivery.toFixed(2)}</span>
+                <span>{formatPrice(totals.delivery)}</span>
               </div>
               <div className="flex justify-between">
                 <span>GST (5%)</span>
-                <span>₹{totals.gst.toFixed(2)}</span>
+                <span>{formatPrice(totals.gst)}</span>
               </div>
               <div className="flex justify-between font-semibold text-base border-t pt-2">
                 <span>Order Total</span>
-                <span>₹{totals.total.toFixed(2)}</span>
+                <span>{formatPrice(totals.total)}</span>
               </div>
               <button
                 onClick={handleContinue}
-                className="mt-3 w-full h-10 rounded-full bg-[hsl(var(--primary))] hover:brightness-95 text-white font-medium shadow-button"
+                disabled={isProcessing || cart.length === 0}
+                className="mt-3 w-full h-10 rounded-full bg-[hsl(var(--primary))] hover:brightness-95 text-white font-medium shadow-button disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Place your order
+                {isProcessing ? (
+                  <>
+                    <Spinner size="sm" variant="secondary" />
+                    Processing...
+                  </>
+                ) : (
+                  "Place your order"
+                )}
               </button>
             </div>
           </div>

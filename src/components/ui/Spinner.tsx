@@ -1,18 +1,45 @@
 import React from "react";
+import { cn } from "../../lib/utils";
 
 interface SpinnerProps {
-  size?: number;
+  size?: "sm" | "md" | "lg" | "xl" | number;
+  variant?: "primary" | "secondary" | "success" | "warning" | "error";
   className?: string;
 }
 
-const Spinner: React.FC<SpinnerProps> = ({ size = 24, className = "" }) => {
-  const stroke = Math.max(2, Math.round(size / 12));
+const Spinner: React.FC<SpinnerProps> = ({ 
+  size = "md", 
+  variant = "primary", 
+  className = "" 
+}) => {
+  const sizeMap = {
+    sm: 16,
+    md: 24,
+    lg: 32,
+    xl: 48,
+  };
+
+  const actualSize = typeof size === "number" ? size : sizeMap[size];
+  const stroke = Math.max(2, Math.round(actualSize / 12));
+
+  const variantClasses = {
+    primary: "text-blue-600",
+    secondary: "text-gray-600",
+    success: "text-green-600",
+    warning: "text-yellow-600",
+    error: "text-red-600",
+  };
+
   return (
     <svg
-      className={`animate-spin text-[hsl(var(--primary))] ${className}`}
+      className={cn(
+        "animate-spin",
+        variantClasses[variant],
+        className
+      )}
       xmlns="http://www.w3.org/2000/svg"
-      width={size}
-      height={size}
+      width={actualSize}
+      height={actualSize}
       viewBox="0 0 24 24"
       fill="none"
     >
