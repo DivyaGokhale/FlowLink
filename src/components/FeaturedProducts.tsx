@@ -24,27 +24,59 @@ const FeaturedProducts: React.FC = () => {
   const { shop } = useParams<{ shop?: string }>();
 
   useEffect(() => {
-    // Load from local public/products.json
-    fetch(`/products.json`)
-      .then((res) => res.json())
-      .then((data: any[]) => {
-        const mapped: Product[] = (data || []).map((d) => ({
-          _id: String(d._id || d.id),
-          name: d.title || d.name || "Untitled",
-          category: d.category,
-          pack: d.pack,
-          price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
-          mrp: typeof (d as any).mrp === 'number' ? (d as any).mrp : ((d as any).mrp ? parseFloat((d as any).mrp) : undefined),
-          image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
-          desc: d.description || d.desc,
-        }));
-        setProducts(mapped);
-      })
-      .catch((err) => {
-        console.error("Error loading local products.json:", err);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
+    let ignore = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        // Try API with shop filter first
+        const qs = shop ? `?shop=${encodeURIComponent(shop)}` : "";
+        const res = await fetch(`${baseUrl}/products${qs}`);
+        if (res.ok) {
+          const data: any[] = await res.json();
+          if (ignore) return;
+          const mapped: Product[] = (data || []).map((d) => ({
+            _id: String(d._id || d.id),
+            name: d.title || d.name || "Untitled",
+            category: d.category,
+            pack: d.pack,
+            price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
+            mrp: typeof (d as any).mrp === 'number' ? (d as any).mrp : ((d as any).mrp ? parseFloat((d as any).mrp) : undefined),
+            image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
+            desc: d.description || d.desc,
+          }));
+          setProducts(mapped);
+          return;
+        }
+      } catch (err) {
+        // fall through to local JSON
+      }
+      try {
+        const resLocal = await fetch(`/products.json`);
+        if (resLocal.ok) {
+          const data: any[] = await resLocal.json();
+          if (ignore) return;
+          const mapped: Product[] = (data || []).map((d) => ({
+            _id: String(d._id || d.id),
+            name: d.title || d.name || "Untitled",
+            category: d.category,
+            pack: d.pack,
+            price: typeof d.price === "number" ? d.price : parseFloat(d.price || "0"),
+            mrp: typeof (d as any).mrp === 'number' ? (d as any).mrp : ((d as any).mrp ? parseFloat((d as any).mrp) : undefined),
+            image: Array.isArray(d.images) && d.images.length > 0 ? d.images[0] : d.image,
+            desc: d.description || d.desc,
+          }));
+          setProducts(mapped);
+        }
+      } catch (err) {
+        console.error("Error loading products:", err);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    load();
+    return () => { ignore = true };
+  }, [shop]);
 
   const addToCart = (product: Product) => {
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");

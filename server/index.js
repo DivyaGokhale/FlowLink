@@ -318,17 +318,21 @@ app.post(base + '/shops', async (req, res) => {
     const slug = String(body.slug || '').trim().toLowerCase();
     const userId = String(body.userId || '').trim();
     if (!slug || !userId) return res.status(400).json({ error: 'slug and userId required' });
-    const update = {
+    const set = {};
+    if (Object.prototype.hasOwnProperty.call(body, 'name')) set.name = String(body.name || '');
+    if (Object.prototype.hasOwnProperty.call(body, 'description')) set.description = String(body.description || '');
+    if (body.logo != null && String(body.logo).trim()) set.logo = String(body.logo);
+    if (body.cover != null && String(body.cover).trim()) set.cover = String(body.cover);
+    if (Object.prototype.hasOwnProperty.call(body, 'status')) set.status = String(body.status || 'Active');
+
+    // Avoid overlapping fields between $set and $setOnInsert to prevent
+    // ConflictingUpdateOperators when upsert results in an insert.
+    const setOnInsert = {
       userId,
-      slug,
-      name: String(body.name || ''),
-      description: String(body.description || ''),
-      logo: String(body.logo || ''),
-      cover: String(body.cover || ''),
-      status: String(body.status || 'Active')
+      slug
     };
     const opts = { upsert: true, new: true, setDefaultsOnInsert: true };
-    const doc = await Shop.findOneAndUpdate({ userId, slug }, { $set: update }, opts);
+    const doc = await Shop.findOneAndUpdate({ userId, slug }, { $set: set, $setOnInsert: setOnInsert }, opts);
     res.status(201).json(doc.toObject());
   } catch (err) {
     console.error('Upsert shop error:', err);
