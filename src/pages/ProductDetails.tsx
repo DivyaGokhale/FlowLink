@@ -136,7 +136,6 @@ const ProductDetails: React.FC = () => {
   if (loading) {
     return (
       <>
-        <Header />
         <BackButton fallbackPath={shop ? `/${shop}` : "/shop"} />
         <div className="max-w-6xl mx-auto px-6 py-10 animate-fade-in-up">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
@@ -168,7 +167,6 @@ const ProductDetails: React.FC = () => {
 
   return (
     <>
-      <Header />
       <BackButton fallbackPath={shop ? `/${shop}` : "/shop"} />
       <div className="max-w-6xl mx-auto px-6 py-10 animate-fade-in-up">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
