@@ -247,7 +247,6 @@ const Shop: React.FC = () => {
 
   return (
     <>
-      <Header />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 animate-fade-in-up">
         {/* Top bar: title + sort */}
         <div className="flex items-center justify-between mb-4">
