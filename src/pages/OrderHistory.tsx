@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 import Skeleton from "../components/ui/Skeleton";
@@ -120,7 +118,7 @@ const OrderHistory: React.FC = () => {
             <p className="text-sm text-gray-700 mb-4">To place and view orders, login or signup.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                onClick={() => navigate(shop ? `/${shop}/login` : "/login")}
+                onClick={() => navigate(shop ? `/${shop}/account` : "/login")}
                 className="h-10 px-4 rounded-full bg-[hsl(var(--primary))] text-white shadow-button hover:brightness-95"
               >
                 Login
@@ -134,7 +132,6 @@ const OrderHistory: React.FC = () => {
             </div>
           </div>
         </main>
-        <Footer />
       </>
     );
   }
@@ -235,7 +232,6 @@ const OrderHistory: React.FC = () => {
           )}
         </div>
       </main>
-      <Footer />
     </>
   );
 };

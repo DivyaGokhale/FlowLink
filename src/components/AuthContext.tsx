@@ -25,7 +25,7 @@ interface AuthContextType {
   vipEligible: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ shopSlug?: string }>;
   register: (payload: { name?: string; email: string; password: string }) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginWithMicrosoft: () => Promise<void>;
@@ -232,6 +232,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(data.token);
       setUser(data.user);
       await refreshEligibility(data?.user?.email);
+
+      // Persist shop slug for future navigations and API calls
+      if (data?.shopSlug) {
+        try { localStorage.setItem('shopSlug', String(data.shopSlug)); } catch {}
+      }
+
+      return { shopSlug: data?.shopSlug };
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       setError(errorMessage);

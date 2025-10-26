@@ -534,7 +534,16 @@ app.post(base + '/auth/login', [
       return res.status(429).json({ error: 'Too many failed attempts. Try again later.' });
     }
 
-    const doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
+    let doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
+    // Fallback: if shop not specified and no doc found for current seller, try unique email match across sellers
+    if (!doc && !shop && !headerUserId) {
+      const candidates = await User.find({ email: { $regex: `^${String(email)}$`, $options: 'i' } }).limit(2).lean();
+      if (candidates.length === 1) {
+        // Use the uniquely matched user across sellers
+        sellerId = String(candidates[0].sellerId || '');
+        doc = await User.findOne({ sellerId, email: { $regex: `^${String(email)}$`, $options: 'i' } });
+      }
+    }
     if (!doc) {
       // count a failure
       const curr = loginAttempts.get(key) || { count: 0, firstAt: now, lockUntil: 0 };
@@ -568,11 +577,21 @@ app.post(base + '/auth/login', [
     const user = { id: doc.id, name: doc.name, email: doc.email };
     const token = sign(user);
     
+    // Determine shop slug associated with this seller/user for redirect
+    let shopSlug = '';
+    try {
+      const shopDoc = await Shop.findOne({ userId: sellerId }).lean();
+      if (shopDoc && shopDoc.slug) {
+        shopSlug = String(shopDoc.slug);
+      }
+    } catch (_) {}
+
     res.json({ 
       success: true,
       message: 'Login successful',
       token, 
-      user 
+      user,
+      shopSlug
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -680,7 +699,7 @@ app.get(base + '/auth/eligibility', async (req, res) => {
 // Products
 app.get(base + '/products', async (req, res) => {
   try {
-    const { shop } = req.query;
+    const { shop, q } = req.query;
     const headerUserId = (req.header('x-user-id') || '').trim();
     let sellerId = '';
     if (shop) {
@@ -692,7 +711,14 @@ app.get(base + '/products', async (req, res) => {
     } else {
       return res.status(400).json({ error: 'shop or x-user-id required' });
     }
+
+    // Build filter with optional search query
     const filter = { userId: sellerId };
+    if (typeof q === 'string' && q.trim()) {
+      const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      Object.assign(filter, { $or: [ { title: rx }, { description: rx } ] });
+    }
+
     const docs = await Product.find(filter).sort({ createdAt: -1 }).lean();
 
     // Apply automatic discounts (best one) to products
@@ -768,6 +794,57 @@ app.get(base + '/products/:id', async (req, res) => {
     res.json(payload);
   } catch (err) {
     res.status(400).json({ error: 'Bad id' });
+  }
+});
+
+// Products by category (case-insensitive exact match on category field)
+app.get(base + '/products/category/:category', async (req, res) => {
+  try {
+    const headerUserId = (req.header('x-user-id') || '').trim();
+    const { category } = req.params;
+    const { shop } = req.query;
+    let sellerId = '';
+    if (shop) {
+      const s = await Shop.findOne({ slug: String(shop).toLowerCase() }).lean();
+      if (!s) return res.json([]);
+      sellerId = String(s.userId);
+    } else if (headerUserId) {
+      sellerId = String(headerUserId);
+    } else {
+      return res.status(400).json({ error: 'shop or x-user-id required' });
+    }
+
+    const rx = new RegExp('^' + String(category || '').trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+    const filter = { userId: sellerId, category: rx };
+    const docs = await Product.find(filter).sort({ createdAt: -1 }).lean();
+
+    // Apply automatic discounts (best one) to products
+    let discounts = []
+    try { discounts = await Discount.find({ userId: sellerId }).lean() } catch {}
+    const activeAutos = (discounts || []).filter(d => isDiscountActive(d) && String(d.method) === 'auto')
+
+    const out = (docs || []).map(p => {
+      let best = null
+      let bestPrice = null
+      for (const d of activeAutos) {
+        if (Array.isArray(d.productIds) && d.productIds.length) {
+          const pid = String(p._id || '')
+          if (!d.productIds.some(x => String(x) === pid)) continue
+        }
+        const newPrice = computeDiscountedPrice(p.price, d)
+        if (newPrice == null) continue
+        if (bestPrice == null || newPrice < bestPrice) { best = d; bestPrice = newPrice }
+      }
+      if (best && bestPrice != null) {
+        return { ...p, discountedPrice: bestPrice, discount: { id: best._id?.toString?.(), type: best.type, amount: best.amount, method: best.method } }
+      }
+      return p
+    })
+
+    res.json(out);
+  } catch (err) {
+    console.error('List products by category error:', err)
+    res.status(500).json({ error: 'Server error' });
   }
 });
 

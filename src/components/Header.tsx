@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
 
@@ -63,10 +64,14 @@ const Header = () => {
   });
   const { isAuthenticated, logout, user } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
+  const [searchParams] = useSearchParams();
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [shopLoading, setShopLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement | null>(null);
+  const [query, setQuery] = useState<string>(() => {
+    try { return searchParams.get('q') || ''; } catch { return ''; }
+  });
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -98,6 +103,36 @@ const Header = () => {
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
+
+  // Persist current shop slug for auth flows and redirects
+  useEffect(() => {
+    if (shop) {
+      try { localStorage.setItem('shopSlug', String(shop)); } catch {}
+    }
+  }, [shop]);
+
+  // Keep header search in sync with URL param
+  useEffect(() => {
+    try {
+      const q = searchParams.get('q') || '';
+      setQuery(q);
+    } catch {}
+  }, [searchParams]);
+
+  const submitSearch = () => {
+    const q = (query || '').trim();
+    let base = '/shop';
+    if (shop) {
+      base = `/${shop}/checkout`;
+    } else {
+      try {
+        const persisted = localStorage.getItem('shopSlug');
+        if (persisted) base = `/${persisted}/checkout`;
+      } catch {}
+    }
+    const url = q ? `${base}?q=${encodeURIComponent(q)}` : base;
+    navigate(url);
+  };
 
   // Load shop branding if slug present
   useEffect(() => {
@@ -156,8 +191,18 @@ const Header = () => {
                 type="text"
                 placeholder="Search for products like rice, sugar, oil, masale..."
                 aria-label="Search products"
-                className="w-full text-sm sm:text-base pl-9 pr-4 py-2 rounded-md bg-white text-black outline-none focus:ring-2 focus:ring-[#febd69]/50 transition"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitSearch(); }}
+                className="w-full text-sm sm:text-base pl-9 pr-12 py-2 rounded-md bg-white text-black outline-none focus:ring-2 focus:ring-[#febd69]/50 transition"
               />
+              <button
+                onClick={submitSearch}
+                aria-label="Search"
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 h-8 px-3 rounded-md bg-[#febd69] text-[#131921] text-xs font-medium hover:brightness-105 active:scale-[0.99]"
+              >
+                Search
+              </button>
             </div>
           </div>
 
@@ -211,7 +256,7 @@ const Header = () => {
                       <div className="text-sm text-gray-700 mb-3">Hello, sign in</div>
                       <button
                         className="w-full bg-green-600 hover:bg-green-500 text-white font-medium py-2 px-3 rounded-md shadow-button"
-                        onClick={() => navigate(shop ? `/${shop}/login` : "/login")}
+                        onClick={() => navigate(shop ? `/${shop}/account` : "/login")}
                       >
                         Sign in
                       </button>

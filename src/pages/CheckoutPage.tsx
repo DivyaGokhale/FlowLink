@@ -5,8 +5,6 @@ import { useAddress } from '../components/AddressContext';
 import { useCart } from '../components/CartContext';
 import AddressForm from '../components/AddressForm';
 import { useToast } from '../components/ToastContext';
-import Header from '../components/Header';
-import Footer from '../components/Footer';
 import { Button } from '../components/ui/button';
 // Remove AddressForm import as it's causing issues
 
@@ -151,8 +149,6 @@ const CheckoutPage: React.FC = () => {
           </div>
         </div>
       </main>
-      
-      <Footer />
     </div>
   );
 };

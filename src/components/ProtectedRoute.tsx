@@ -19,7 +19,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace state={{ from: location }} />;
+    // If the first path segment looks like a shop slug, send the user to
+    // that shop's account login route so we can preserve the slug context.
+    const firstSeg = location.pathname.split('/').filter(Boolean)[0] || '';
+    const RESERVED = new Set([
+      'login','signup','product','addToCart','payment','shop','orders','order','profile','category','cart','review','order-confirmed','account'
+    ]);
+    const shopSlug = firstSeg && !RESERVED.has(firstSeg) ? firstSeg : '';
+    const loginPath = shopSlug ? `/${shopSlug}/account` : '/login';
+    return <Navigate to={loginPath} replace state={{ from: location }} />;
   }
 
   return children;

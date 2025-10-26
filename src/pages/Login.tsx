@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 import Header from "../components/Header";
 import { toast } from "react-toastify";
@@ -9,6 +9,7 @@ const Login: React.FC = () => {
   const { isAuthenticated, login, loginWithGoogle, loginWithMicrosoft } = useAuth();
   const navigate = useNavigate();
   const location = useLocation() as any;
+  const { shop } = useParams<{ shop?: string }>();
   const redirectTo = location.state?.from?.pathname || "/";
 
   const [email, setEmail] = useState(location.state?.email || "");
@@ -16,9 +17,18 @@ const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const computeNextPath = (fallbackSlug?: string) => {
+    const from: string | undefined = location.state?.from?.pathname;
+    const isInvalidFrom = !from || /\/(login|signup|account)(\/|$)/i.test(from);
+    if (!isInvalidFrom) return from!;
+    const stored = (() => { try { return localStorage.getItem('shopSlug') || ''; } catch { return ''; } })();
+    const slug = (shop || fallbackSlug || stored || '').trim();
+    return slug ? `/${slug}` : "/";
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
-      navigate(redirectTo, { replace: true });
+      navigate(computeNextPath(), { replace: true });
     }
   }, [isAuthenticated, navigate, redirectTo]);
 
@@ -35,9 +45,10 @@ const Login: React.FC = () => {
     setLoading(true);
     
     try {
-      await login(email, password);
+      const result = await login(email, password);
       toast.success("Login successful!");
-      navigate(redirectTo, { replace: true });
+      const next = computeNextPath(result?.shopSlug);
+      navigate(next, { replace: true });
     } catch (err: any) {
       const errorMessage = err.message || "Login failed";
       setError(errorMessage);
@@ -129,7 +140,7 @@ const Login: React.FC = () => {
               setLoading(true)
               try {
                 await loginWithGoogle()
-                navigate(redirectTo, { replace: true })
+                navigate(computeNextPath(), { replace: true })
               } catch (e: any) {
                 setError(e?.message || "Google sign-in failed")
               } finally {
@@ -148,7 +159,7 @@ const Login: React.FC = () => {
               setLoading(true)
               try {
                 await loginWithMicrosoft()
-                navigate(redirectTo, { replace: true })
+                navigate(computeNextPath(), { replace: true })
               } catch (e: any) {
                 setError(e?.message || "Microsoft sign-in failed")
               } finally {

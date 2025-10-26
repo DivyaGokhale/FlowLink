@@ -1,10 +1,11 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 
 const Signup: React.FC = () => {
   const { register, loginWithGoogle, loginWithMicrosoft } = useAuth();
   const navigate = useNavigate();
+  const { shop } = useParams<{ shop?: string }>();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -26,7 +27,7 @@ const Signup: React.FC = () => {
     try {
       await register({ name, email, password });
       // If token not returned, user will still be unauthenticated and should log in.
-      navigate("/login", { replace: true, state: { justRegistered: true, email } });
+      navigate(shop ? `/${shop}/account` : "/login", { replace: true, state: { justRegistered: true, email } });
     } catch (err: any) {
       setError(err.message || "Registration failed");
     } finally {
@@ -121,7 +122,7 @@ const Signup: React.FC = () => {
             onClick={async () => {
               try {
                 await loginWithGoogle();
-                navigate("/", { replace: true });
+                navigate(shop ? `/${shop}` : "/", { replace: true });
               } catch (e) {}
             }}
             className="flex items-center justify-center w-full h-10 border border-gray-300 rounded-sm hover:bg-gray-50 transition"
@@ -134,7 +135,7 @@ const Signup: React.FC = () => {
             onClick={async () => {
               try {
                 await loginWithMicrosoft();
-                navigate("/", { replace: true });
+                navigate(shop ? `/${shop}` : "/", { replace: true });
               } catch (e) {}
             }}
             className="flex items-center justify-center w-full h-10 border border-gray-300 rounded-sm hover:bg-gray-50 transition"
@@ -145,7 +146,7 @@ const Signup: React.FC = () => {
         </div>
 
         <div className="text-xs text-gray-600">
-          Already have an account? <Link to="/login" className="text-blue-700 hover:underline">Sign in</Link>
+          Already have an account? <Link to={shop ? `/${shop}/account` : "/login"} className="text-blue-700 hover:underline">Sign in</Link>
         </div>
       </div>
     </div>

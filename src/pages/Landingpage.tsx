@@ -4,7 +4,6 @@ import { useLocation } from "react-router-dom";
 import DiscountBanner from "../components/DiscountBanner";
 import ProductShowcase from "../components/ProductShowcase";
 import CategorySection from "../components/CategorySection";
-import Footer from "@/components/Footer";
 import Skeleton from "../components/ui/Skeleton";
 import TopBrandsSection from "@/components/TopBrandsSection";
 
@@ -48,7 +47,7 @@ const Landingpage: React.FC = () => {
               <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                 <div>
                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Everything you need, delivered fast</h1>
-                  <p className="text-white/80 mt-1 text-sm md:text-base">Groceries, essentials and more from local stores.</p>
+                  {/* <p className="text-white/80 mt-1 text-sm md:text-base">Groceries, essentials and more from  stores.</p> */}
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <a
@@ -139,7 +138,6 @@ const Landingpage: React.FC = () => {
         >
           <TopBrandsSection />
         </Suspense>
-        <Footer />
       </main>
     </div>
   );

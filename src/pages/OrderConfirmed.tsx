@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import { apiService } from "../lib/api";
 import { formatPrice } from "../lib/utils";
 import { generateInvoicePDF } from "../lib/invoice";
@@ -126,7 +124,6 @@ const OrderConfirmed: React.FC = () => {
             <p className="text-gray-600">Loading order details...</p>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
@@ -147,7 +144,6 @@ const OrderConfirmed: React.FC = () => {
             </Link>
           </div>
         </div>
-        <Footer />
       </div>
     );
   }
