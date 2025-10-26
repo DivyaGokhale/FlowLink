@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import AddressSelector from "../components/AddressSelector";
 import CartSummary from "../components/CartSummary";
 import RelatedProducts from "../components/RelatedProducts";
@@ -147,7 +145,7 @@ function AddToCart() {
                   To checkout and see delivery charges and order summary, please
                   <button
                     className="ml-2 inline-flex items-center px-3 py-1 rounded-full bg-green-600 hover:bg-green-500 text-white font-medium shadow-button"
-                    onClick={() => navigate(shop ? `/${shop}/login` : "/login")}
+                    onClick={() => navigate(shop ? `/${shop}/account` : "/login")}
                   >
                     Sign in to your account
                   </button>
@@ -166,7 +164,6 @@ function AddToCart() {
       </main>
 
       <RelatedProducts products={[]} />
-      <Footer />
     </div>
   );
 }

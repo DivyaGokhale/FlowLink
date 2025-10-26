@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import { useToast } from "../components/ToastContext";
 import BackButton from "../components/BackButton";
 import Skeleton from "../components/ui/Skeleton";
@@ -154,7 +152,6 @@ const ProductDetails: React.FC = () => {
             </div>
           </div>
         </div>
-        <Footer />
       </>
     );
   }
@@ -261,7 +258,6 @@ const ProductDetails: React.FC = () => {
           </div>
         </div>
       </div>
-      <Footer />
     </>
   );
 };

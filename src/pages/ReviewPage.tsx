@@ -1,6 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import { useNavigate, useParams } from "react-router-dom";
 
 interface Product {
@@ -87,7 +85,6 @@ const ReviewPage: React.FC = () => {
 
   return (
     <>
-      <Header />
       <div className="min-h-screen bg-gradient-hero p-6 flex flex-col items-center">
         <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Payment Status / Summary Header */}
@@ -178,7 +175,6 @@ const ReviewPage: React.FC = () => {
             </div>
           </div>
         </div>
-      <Footer />
     </>
   );
 };

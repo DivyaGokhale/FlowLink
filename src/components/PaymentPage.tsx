@@ -5,7 +5,6 @@ import { useAddress } from "./AddressContext";
 import { useCart } from "./CartContext";
 import { useToast } from "./ToastContext";
 import BackButton from "./BackButton";
-import Footer from "./Footer";
 import Spinner from "./ui/Spinner";
 import { razorpayService } from "../lib/razorpay";
 import { apiService } from "../lib/api";
@@ -97,7 +96,7 @@ const PaymentPage: React.FC = () => {
         await razorpayService.initiatePayment(
           {
             orderId,
-            amount: totals.total * 100, // amount in paise
+            amount: totals.total, // amount in rupees; service converts to paise
             currency: "INR",
             customerName: selectedAddress?.name || user?.name || "",
             customerEmail: user?.email || "",
@@ -166,7 +165,7 @@ const PaymentPage: React.FC = () => {
             </button>
           </div>
         </div>
-        <Footer />
+        
       </div>
     );
   }
@@ -175,7 +174,7 @@ const PaymentPage: React.FC = () => {
     <div className="min-h-screen flex flex-col">
       <div className="flex-1 bg-gray-50 p-6">
         <div className="max-w-7xl mx-auto">
-          <BackButton fallbackPath={shop ? `/${shop}/checkout` : "/checkout"} />
+          {/* <BackButton fallbackPath={shop ? `/${shop}/checkout` : "/checkout"} /> */}
           <h1 className="text-2xl font-bold mb-8">Complete Your Payment</h1>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -289,7 +288,6 @@ const PaymentPage: React.FC = () => {
           </div>
         </div>
       </div>
-      <Footer />
     </div>
   );
 };

@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
 import Skeleton from "../components/ui/Skeleton";
 import { useToast } from "../components/ToastContext";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -55,14 +53,23 @@ const Shop: React.FC = () => {
   const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
 
   useEffect(() => {
+    // Seed filters from URL params
     const initialCat = params.get("category");
     if (initialCat) setSelectedCats(new Set([initialCat]));
+
+    const q = (params.get("q") || params.get("search") || "").trim();
+    if (q !== search) setSearch(q);
   }, [params]);
 
   useEffect(() => {
     let cancelled = false;
-    const key = `shop:${shop || '_'}`;
-    const cached = shopCache.get(key) || getSessionCache(key);
+    const qParam = (params.get("q") || params.get("search") || "").trim();
+    // Prefer route shop, else persisted shopSlug for search context
+    let persistedShop = '';
+    try { persistedShop = localStorage.getItem('shopSlug') || ''; } catch {}
+    const effectiveShop = shop || persistedShop || '';
+    const key = `shop:${effectiveShop || '_'}`;
+    const cached = qParam ? null : (shopCache.get(key) || getSessionCache(key));
     if (cached && cached.length) {
       setProducts(cached);
       setLoading(false);
@@ -73,14 +80,19 @@ const Shop: React.FC = () => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const qs = shop ? `?shop=${encodeURIComponent(shop)}` : "";
-        const res = await fetch(`${baseUrl}/products${qs}`, { signal: controller.signal });
+        const sp = new URLSearchParams();
+        if (effectiveShop) sp.set('shop', effectiveShop);
+        if (qParam) sp.set('q', qParam);
+        const url = `${baseUrl}/products${sp.toString() ? `?${sp.toString()}` : ''}`;
+        const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) throw new Error('api');
         const data: ProductDoc[] = await res.json();
         if (cancelled) return;
         const arr = Array.isArray(data) ? data : [];
-        shopCache.set(key, arr);
-        setSessionCache(key, arr);
+        if (!qParam) {
+          shopCache.set(key, arr);
+          setSessionCache(key, arr);
+        }
         setProducts(arr);
       } catch (_) {
         // keep existing products/cached if API fails
@@ -90,7 +102,7 @@ const Shop: React.FC = () => {
     };
     load();
     return () => { cancelled = true; controller.abort(); };
-  }, [baseUrl, shop]);
+  }, [baseUrl, shop, params]);
 
   const priceBounds = useMemo(() => {
     const prices = products.map(p => Number(p.price || 0)).filter(n => !Number.isNaN(n));
@@ -118,9 +130,9 @@ const Shop: React.FC = () => {
   const visible = useMemo(() => {
     let list = [...products];
 
-    // Search
+    // Search across title/name
     const q = search.trim().toLowerCase();
-    if (q) list = list.filter(p => (p.title || "").toLowerCase().includes(q));
+    if (q) list = list.filter(p => ((p.title || (p as any).name || "").toLowerCase().includes(q)));
 
     // Categories
     if (selectedCats.size) list = list.filter(p => selectedCats.has((p.category || "Others").trim()));
@@ -157,7 +169,35 @@ const Shop: React.FC = () => {
   }, [products, search, selectedCats, inStockOnly, minPrice, maxPrice, sortBy]);
 
   // Final list to render: prefer filtered visible; otherwise use fallback featured
-  const display = visible.length ? visible : fallback;
+  const fallbackVisible = useMemo(() => {
+    let list = [...fallback];
+    const q = search.trim().toLowerCase();
+    if (q) list = list.filter(p => ((p.title || (p as any).name || "").toLowerCase().includes(q)));
+    if (selectedCats.size) list = list.filter(p => selectedCats.has((p.category || "Others").trim()));
+    if (inStockOnly) list = list.filter(p => (p.quantity ?? 0) > 0);
+    list = list.filter(p => {
+      const price = Number(p.price || 0);
+      const overMin = minPrice === undefined ? true : price >= minPrice;
+      const underMax = maxPrice === undefined ? true : price <= maxPrice;
+      return overMin && underMax;
+    });
+    switch (sortBy) {
+      case "price_asc":
+        list.sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+        break;
+      case "price_desc":
+        list.sort((a, b) => Number(b.price || 0) - Number(a.price || 0));
+        break;
+      case "newest":
+        list.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        break;
+      default:
+        break;
+    }
+    return list;
+  }, [fallback, search, selectedCats, inStockOnly, minPrice, maxPrice, sortBy]);
+
+  const display = visible.length ? visible : fallbackVisible;
 
   // Load featured products as a fallback when no results found
   useEffect(() => {
@@ -266,9 +306,9 @@ const Shop: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 md:h-[calc(100vh-140px)] md:overflow-hidden">
           {/* Sidebar Filters */}
-          <aside className="md:sticky md:top-[84px] h-max bg-white/90 backdrop-blur border border-gray-200 rounded-xl p-4 shadow-sm">
+          <aside className="h-max md:h-full bg-white/90 backdrop-blur border border-gray-200 rounded-xl p-4 shadow-sm">
             <div className="mb-4">
               <input
                 type="text"
@@ -325,7 +365,7 @@ const Shop: React.FC = () => {
           </aside>
 
           {/* Results grid */}
-          <section>
+          <section className="md:h-full md:overflow-y-auto pr-1">
             {loading ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                 {Array.from({ length: 12 }).map((_, i) => (
@@ -385,7 +425,6 @@ const Shop: React.FC = () => {
           </section>
         </div>
       </div>
-      <Footer />
     </>
   );
 };

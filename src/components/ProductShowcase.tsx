@@ -21,8 +21,11 @@ const ProductShowcase: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast(); // ✅ get toast function
-  const { token, user } = useAuth();
+  const { token, user, vipEligible } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
+  
+  // VIP discount amount
+  const VIP_OFF = 15;
 
   useEffect(() => {
     const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -53,15 +56,24 @@ const ProductShowcase: React.FC = () => {
   }, [token, user?.id, shop]);
 
   const addToCart = (product: Product) => {
+    // Calculate VIP price if eligible
+    const basePrice = Number(product.price || 0);
+    const vipPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
+    
+    const productToAdd = {
+      ...product,
+      price: vipPrice
+    };
+
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
 
-    const updatedCart = existingCart.some((item: Product) => item._id === product._id)
+    const updatedCart = existingCart.some((item: Product) => item._id === productToAdd._id)
       ? existingCart.map((item: Product) =>
-          item._id === product._id
+          item._id === productToAdd._id
             ? { ...item, quantity: (item.quantity || 1) + 1 }
             : item
         )
-      : [...existingCart, { ...product, quantity: 1 }];
+      : [...existingCart, { ...productToAdd, quantity: 1 }];
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
     try { window.dispatchEvent(new Event("cart-updated")); } catch {}
@@ -110,7 +122,14 @@ const ProductShowcase: React.FC = () => {
             </AnimatePresence>
           ) : (
             <AnimatePresence>
-              {products.map((product, index) => (
+              {products.map((product, index) => {
+                // Calculate VIP price for display
+                const basePrice = Number(product.price || 0);
+                const displayPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
+                const hasDiscount = product.mrp && product.mrp > displayPrice;
+                const discountPercent = hasDiscount ? Math.round(((product.mrp! - displayPrice) / product.mrp!) * 100) : 0;
+                
+                return (
                 <motion.div 
                   key={product._id}
                   className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300"
@@ -146,6 +165,12 @@ const ProductShowcase: React.FC = () => {
                         initial={{ opacity: 0 }}
                         whileHover={{ opacity: 1 }}
                       />
+                      {/* VIP Badge */}
+                      {vipEligible && (
+                        <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                          VIP
+                        </div>
+                      )}
                     </motion.div>
                     <div className="p-4">
                       <motion.h3 
@@ -161,15 +186,25 @@ const ProductShowcase: React.FC = () => {
                             className="text-lg font-semibold text-gray-900"
                             whileHover={{ scale: 1.05 }}
                           >
-                            ₹{product.price.toFixed(2)}
+                            ₹{displayPrice.toFixed(2)}
                           </motion.span>
-                          {product.mrp && product.mrp > product.price && (
+                          {product.mrp && product.mrp > displayPrice && (
                             <motion.span 
                               className="ml-2 text-sm text-gray-500 line-through"
                               initial={{ opacity: 0.8 }}
                               whileHover={{ opacity: 1 }}
                             >
                               ₹{product.mrp.toFixed(2)}
+                            </motion.span>
+                          )}
+                          {/* VIP Discount Badge */}
+                          {vipEligible && basePrice > displayPrice && (
+                            <motion.span 
+                              className="ml-2 text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-1.5 py-0.5 rounded"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            >
+                              Save ₹{VIP_OFF}
                             </motion.span>
                           )}
                         </div>
@@ -204,7 +239,7 @@ const ProductShowcase: React.FC = () => {
                     </motion.button>
                   </div>
                 </motion.div>
-              ))}
+              )})}
             </AnimatePresence>
           )}
         </div>

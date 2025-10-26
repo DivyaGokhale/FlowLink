@@ -47,11 +47,11 @@ const DiscountBanner = () => {
       </div>
 
       {/* Right section: Promo image */}
-      <div className="w-full md:w-auto md:basis-[520px] lg:basis-[600px] md:shrink-0 flex items-center justify-center rounded-2xl overflow-hidden shadow-card h-48 sm:h-56 md:h-64">
+      <div className="w-full md:w-auto md:basis-[520px] lg:basis-[550px] md:shrink-0 flex items-center justify-center rounded-2xl overflow-hidden shadow-card h-48 sm:h-56 md:h-80">
         <img
           src={shopInfo?.cover || "/assets/teatime.png"}
           alt={(shopInfo?.name ? `${shopInfo.name} Cover` : "Promo Banner")}
-          className="block w-full h-full animate-float object-cover object-left"
+          className="relative w-full max-w-xl h-72 sm:h-80 rounded-3xl shadow-2xl object-cover transform group-hover:scale-105 transition-all duration-500 border-4 border-white/50"
           onError={(e) => { const t = e.currentTarget as HTMLImageElement; if (t.src !== "/assets/teatime.png") t.src = "/assets/teatime.png"; }}
         />
       </div>

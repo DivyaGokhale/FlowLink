@@ -20,8 +20,11 @@ const FeaturedProducts: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast(); // ✅ get toast function
-  const { user } = useAuth();
+  const { user, vipEligible } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
+  
+  // VIP discount amount
+  const VIP_OFF = 15;
 
   useEffect(() => {
     // Load from local public/products.json
@@ -47,15 +50,24 @@ const FeaturedProducts: React.FC = () => {
   }, []);
 
   const addToCart = (product: Product) => {
+    // Calculate VIP price if eligible
+    const basePrice = Number(product.price || 0);
+    const vipPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
+    
+    const productToAdd = {
+      ...product,
+      price: vipPrice
+    };
+
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
 
-    const updatedCart = existingCart.some((item: Product) => item._id === product._id)
+    const updatedCart = existingCart.some((item: Product) => item._id === productToAdd._id)
       ? existingCart.map((item: Product) =>
-          item._id === product._id
+          item._id === productToAdd._id
             ? { ...item, quantity: (item.quantity || 1) + 1 }
             : item
         )
-      : [...existingCart, { ...product, quantity: 1 }];
+      : [...existingCart, { ...productToAdd, quantity: 1 }];
 
     localStorage.setItem("cart", JSON.stringify(updatedCart));
     try { window.dispatchEvent(new Event("cart-updated")); } catch {}
@@ -83,10 +95,14 @@ const FeaturedProducts: React.FC = () => {
   return (
     <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up scroll-mt-24 md:scroll-mt-28">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
         {products.map((product) => {
-          const hasDiscount = product.mrp && product.mrp > (product.price || 0);
-          const discount = hasDiscount ? Math.round(((product.mrp! - product.price) / product.mrp!) * 100) : 0;
+          // Calculate VIP price for display
+          const basePrice = Number(product.price || 0);
+          const displayPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
+          const hasDiscount = product.mrp && product.mrp > displayPrice;
+          const discount = hasDiscount ? Math.round(((product.mrp! - displayPrice) / product.mrp!) * 100) : 0;
+          
           return (
             <div
               key={product._id}
@@ -94,7 +110,7 @@ const FeaturedProducts: React.FC = () => {
             >
               {/* Product Image */}
               <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 overflow-hidden">
-                <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center">
+                <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center relative">
                   <img
                     src={product.image}
                     alt={product.name}
@@ -104,6 +120,12 @@ const FeaturedProducts: React.FC = () => {
                     decoding="async"
                     className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]"
                   />
+                  {/* VIP Badge */}
+                  {vipEligible && (
+                    <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                      VIP
+                    </div>
+                  )}
                 </div>
               </Link>
 
@@ -113,12 +135,18 @@ const FeaturedProducts: React.FC = () => {
               <div className="text-xs text-gray-500">{product.category || product.pack || 'Others'}</div>
               {/* Price Row */}
               <div className="mt-2 flex items-baseline gap-2">
-                <div className="text-lg font-semibold text-gray-900">₹{product.price}</div>
+                <div className="text-lg font-semibold text-gray-900">₹{displayPrice}</div>
                 {hasDiscount && (
                   <>
                     <div className="text-xs line-through text-gray-400">₹{product.mrp}</div>
                     <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
                   </>
+                )}
+                {/* VIP Discount Badge */}
+                {vipEligible && basePrice > displayPrice && (
+                  <span className="text-[11px] bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded px-1.5 py-0.5">
+                    Save ₹{VIP_OFF}
+                  </span>
                 )}
               </div>
               {/* Actions */}
