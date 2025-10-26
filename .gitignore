@@ -28,3 +28,29 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Build / cache
+.vite
+.cache
+.parcel-cache
+out
+build
+*.tsbuildinfo
+
+# Coverage
+coverage
+.nyc_output
+
+# Tooling
+.eslintcache
+pnp.js
+pnp.cjs
+
+# Server local env
+server/.env
+
+# Local env variants
+.env.*.local
+
+# Misc
+*.tgz
