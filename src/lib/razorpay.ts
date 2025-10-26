@@ -1,83 +1,84 @@
-// Razorpay Payment Integration for FlowLink
+import type {
+  RazorpayOptions,
+  RazorpayResponse,
+  PaymentData,
+  PaymentError,
+  RazorpayInstance
+} from '../types/razorpay';
 
-declare global {
-  interface Window {
-    Razorpay: any;
-  }
-}
-
-export interface RazorpayOptions {
-  key: string;
-  amount: number;
-  currency: string;
-  name: string;
-  description: string;
-  order_id?: string;
-  prefill?: {
-    name?: string;
-    email?: string;
-    contact?: string;
-  };
-  notes?: Record<string, string>;
-  theme?: {
-    color?: string;
-  };
-  handler?: (response: RazorpayResponse) => void;
-  modal?: {
-    ondismiss?: () => void;
-  };
-}
-
-export interface RazorpayResponse {
-  razorpay_payment_id: string;
-  razorpay_order_id: string;
-  razorpay_signature: string;
-}
-
-export interface PaymentData {
-  orderId: string;
-  amount: number;
-  currency?: string;
-  customerName?: string;
-  customerEmail?: string;
-  customerPhone?: string;
+class RazorpayError extends Error implements PaymentError {
+  code?: string;
   description?: string;
+  source?: string;
+  step?: string;
+  reason?: string;
+
+  constructor(message: string, details?: Partial<PaymentError>) {
+    super(message);
+    this.name = 'RazorpayError';
+    Object.assign(this, details);
+  }
 }
 
-class RazorpayService {
+export class RazorpayService {
   private keyId: string;
-  private isLoaded: boolean = false;
+  private isScriptLoaded: boolean = false;
+  private static instance: RazorpayService;
 
-  constructor() {
-    this.keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || '';
+  private constructor() {
+    this.keyId = import.meta.env.VITE_RAZORPAY_KEY_ID;
+    if (!this.keyId) {
+      console.warn('VITE_RAZORPAY_KEY_ID is not configured');
+    }
   }
 
-  private async loadScript(): Promise<void> {
-    if (this.isLoaded) return;
+  static getInstance(): RazorpayService {
+    if (!RazorpayService.instance) {
+      RazorpayService.instance = new RazorpayService();
+    }
+    return RazorpayService.instance;
+  }
+
+  public async loadScript(): Promise<void> {
+    if (this.isScriptLoaded) return;
 
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
       script.onload = () => {
-        this.isLoaded = true;
+        this.isScriptLoaded = true;
         resolve();
       };
       script.onerror = () => {
-        reject(new Error('Failed to load Razorpay script'));
+        reject(new RazorpayError('Failed to load Razorpay script', {
+          step: 'script_loading',
+          source: 'RazorpayService'
+        }));
       };
       document.head.appendChild(script);
     });
   }
 
-  async createOrder(paymentData: PaymentData): Promise<string> {
+  private async createOrder(paymentData: PaymentData): Promise<string> {
     try {
-      const response = await fetch('/api/razorpay/create-order', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+      console.log('Creating Razorpay order:', {
+        url: `${apiBaseUrl}/razorpay/create-order`,
+        data: {
+          amount: Math.round(paymentData.amount * 100),
+          currency: paymentData.currency || 'INR',
+          receipt: paymentData.orderId,
+        }
+      });
+      
+      const response = await fetch(`${apiBaseUrl}/razorpay/create-order`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          amount: paymentData.amount * 100, // Convert to paise
+          amount: Math.round(paymentData.amount * 100), // Convert to paise
           currency: paymentData.currency || 'INR',
           receipt: paymentData.orderId,
           notes: {
@@ -89,112 +90,182 @@ class RazorpayService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create Razorpay order');
+        const error = await response.json().catch(() => ({}));
+        console.error('Server error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          error
+        });
+        throw new RazorpayError('Failed to create Razorpay order', {
+          step: 'order_creation',
+          description: error.error || error.message || 'Server returned an error',
+          code: error.code,
+        });
       }
 
       const data = await response.json();
+      console.log('Razorpay order creation response:', data);
+      
+      if (!data.order_id) {
+        console.error('Invalid order response:', data);
+        throw new RazorpayError('Invalid order response from server', {
+          step: 'order_creation',
+          description: 'Server response missing order_id',
+          source: 'RazorpayService'
+        });
+      }
+      
       return data.order_id;
     } catch (error) {
-      console.error('Error creating Razorpay order:', error);
-      throw error;
+      if (error instanceof RazorpayError) throw error;
+      throw new RazorpayError('Failed to create Razorpay order', {
+        step: 'order_creation',
+        source: 'RazorpayService',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
-  async initiatePayment(
+  public async initiatePayment(
     paymentData: PaymentData,
-    onSuccess: (response: RazorpayResponse) => void,
-    onError: (error: any) => void
+    callbacks: {
+      onSuccess: (response: RazorpayResponse) => Promise<void>;
+      onError?: (error: PaymentError) => void;
+      onDismiss?: () => void;
+    }
   ): Promise<void> {
+    if (!this.keyId) {
+      throw new RazorpayError('Razorpay key is not configured', {
+        step: 'initialization',
+        source: 'RazorpayService',
+      });
+    }
+
     try {
       await this.loadScript();
 
       if (!window.Razorpay) {
-        throw new Error('Razorpay not loaded');
+        throw new RazorpayError('Razorpay not initialized', {
+          step: 'initialization',
+          source: 'RazorpayService',
+        });
       }
 
-      // Create order first
-      const razorpayOrderId = await this.createOrder(paymentData);
+      const orderId = await this.createOrder(paymentData);
 
       const options: RazorpayOptions = {
         key: this.keyId,
-        amount: paymentData.amount * 100, // Convert to paise
+        amount: (paymentData.amount * 100).toString(),
         currency: paymentData.currency || 'INR',
         name: 'FlowLink',
-        description: paymentData.description || 'Order Payment',
-        order_id: razorpayOrderId,
+        description: paymentData.description || `Order #${paymentData.orderId}`,
+        order_id: orderId,
         prefill: {
           name: paymentData.customerName,
           email: paymentData.customerEmail,
           contact: paymentData.customerPhone,
         },
         theme: {
-          color: '#3B82F6', // Blue color matching FlowLink theme
+          color: '#4F46E5', // Indigo color matching FlowLink theme
         },
-        handler: (response: RazorpayResponse) => {
-          onSuccess(response);
+        handler: async (response: RazorpayResponse) => {
+          try {
+            await this.verifyPayment(response);
+            await callbacks.onSuccess(response);
+          } catch (error) {
+            callbacks.onError?.(error as PaymentError);
+          }
         },
         modal: {
           ondismiss: () => {
-            onError(new Error('Payment cancelled by user'));
-          },
-        },
+            callbacks.onDismiss?.();
+          }
+        }
       };
 
       const razorpay = new window.Razorpay(options);
       razorpay.open();
+
     } catch (error) {
-      console.error('Error initiating payment:', error);
-      onError(error);
+      const paymentError = error instanceof RazorpayError ? error : new RazorpayError(
+        'Payment initialization failed',
+        {
+          step: 'initialization',
+          source: 'RazorpayService',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        }
+      );
+      callbacks.onError?.(paymentError);
     }
   }
 
-  async verifyPayment(
-    orderId: string,
-    paymentId: string,
-    signature: string
-  ): Promise<boolean> {
+  public async verifyPayment(response: RazorpayResponse): Promise<boolean> {
     try {
-      const response = await fetch('/api/razorpay/verify-payment', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001/api';
+      const verifyResponse = await fetch(`${apiBaseUrl}/razorpay/verify-payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          order_id: orderId,
-          payment_id: paymentId,
-          signature: signature,
+          order_id: response.razorpay_order_id,
+          payment_id: response.razorpay_payment_id,
+          signature: response.razorpay_signature,
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Payment verification failed');
+      if (!verifyResponse.ok) {
+        const error = await verifyResponse.json().catch(() => ({}));
+        throw new RazorpayError('Payment verification failed', {
+          step: 'verification',
+          description: error.message || 'Server returned an error',
+          code: error.code,
+        });
       }
 
-      const data = await response.json();
+      const data = await verifyResponse.json();
       return data.verified === true;
     } catch (error) {
-      console.error('Error verifying payment:', error);
-      return false;
+      throw new RazorpayError('Payment verification failed', {
+        step: 'verification',
+        source: 'RazorpayService',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   }
 
-  // Mock payment for development/testing
-  async initiateMockPayment(
+  // Development/testing helper
+  public async mockPayment(
     paymentData: PaymentData,
-    onSuccess: (response: RazorpayResponse) => void,
-    onError: (error: any) => void
+    callbacks: {
+      onSuccess: (response: RazorpayResponse) => Promise<void>;
+      onError?: (error: PaymentError) => void;
+    }
   ): Promise<void> {
-    // Simulate payment processing delay
-    setTimeout(() => {
-      const mockResponse: RazorpayResponse = {
-        razorpay_payment_id: `mock_payment_${Date.now()}`,
-        razorpay_order_id: `mock_order_${Date.now()}`,
-        razorpay_signature: `mock_signature_${Date.now()}`,
-      };
-      onSuccess(mockResponse);
+    if (import.meta.env.MODE !== 'development') {
+      console.warn('Mock payment attempted in non-development environment');
+      return;
+    }
+
+    setTimeout(async () => {
+      try {
+        const mockResponse: RazorpayResponse = {
+          razorpay_payment_id: `mock_pay_${Date.now()}`,
+          razorpay_order_id: `mock_order_${paymentData.orderId}`,
+          razorpay_signature: 'mock_sign_valid',
+        };
+        await callbacks.onSuccess(mockResponse);
+      } catch (error) {
+        callbacks.onError?.(new RazorpayError('Mock payment failed', {
+          step: 'mock_payment',
+          source: 'RazorpayService',
+          description: error instanceof Error ? error.message : 'Unknown error',
+        }));
+      }
     }, 2000);
   }
 }
 
-export const razorpayService = new RazorpayService();
+// Export a singleton instance
+export const razorpayService = RazorpayService.getInstance();
 export default razorpayService;

@@ -95,7 +95,6 @@ function AddToCart() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Header />
 
       <main className="flex-grow w-full max-w-7xl mx-auto p-4 md:p-6">
         <BackButton fallbackPath={shop ? `/${shop}` : "/"} />

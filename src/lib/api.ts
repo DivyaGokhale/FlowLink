@@ -36,6 +36,8 @@ export interface Product {
 
 export interface Order {
   _id: string;
+  id?: string;  // Alternative ID field
+  orderId?: string;  // Another possible ID field
   userId: string;
   customerId?: string;
   customerName?: string;
@@ -107,11 +109,33 @@ class ApiService {
       const response = await fetch(url, config);
       const data = await response.json();
 
+      // Log the raw response for debugging
+      console.log(`API Response [${endpoint}]:`, data);
+
       if (!response.ok) {
         throw new Error(data.error || data.message || `HTTP ${response.status}`);
       }
 
-      return data;
+      // Ensure we have a properly structured response
+      if (data === null || data === undefined) {
+        throw new Error('Empty response from server');
+      }
+
+      // Transform response to match ApiResponse interface
+      const apiResponse: ApiResponse<T> = {
+        success: data.success ?? response.ok,
+        data: data.data ?? data, // If no data field, use the entire response
+        message: data.message,
+        error: data.error
+      };
+
+      // Validate the response has required data
+      if (!apiResponse.data) {
+        console.error('Invalid API response structure:', data);
+        throw new Error('No data received in order response');
+      }
+
+      return apiResponse;
     } catch (error) {
       console.error(`API Error [${endpoint}]:`, error);
       throw error;
@@ -215,23 +239,76 @@ class ApiService {
     customerEmail?: string;
     customerName?: string;
   }, userId: string): Promise<ApiResponse<Order>> {
-    return this.request('/orders', {
+    console.log('Creating order with data:', { ...orderData, userId });
+    
+    const response = await this.request<Order>('/orders', {
       method: 'POST',
-      headers: { 'x-user-id': userId },
+      headers: { 
+        'x-user-id': userId,
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(orderData),
+    });
+    
+    console.log('Raw order response:', response);
+    
+    // Transform response if needed (in case server returns just the order object)
+    const formattedResponse: ApiResponse<Order> = {
+      success: true,
+      data: 'data' in response ? response.data : response as Order,
+      message: 'message' in response ? response.message : 'Order created successfully'
+    };
+    
+    console.log('Formatted order response:', formattedResponse);
+    
+    if (!formattedResponse.data) {
+      console.error('Missing order data in response');
+      throw new Error('No data received in order response');
+    }
+    
+    return formattedResponse;
+  }
+
+  async updateOrder(orderId: string, updateData: Partial<Order>, userId?: string): Promise<ApiResponse<Order>> {
+    const headers: Record<string, string> = {};
+    if (userId) headers['x-user-id'] = userId;
+    
+    return this.request(`/orders/${orderId}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(updateData),
     });
   }
 
   async getOrders(userId: string, page = 1, limit = 10, status?: string): Promise<ApiResponse> {
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: limit.toString(),
-    });
-    if (status) params.set('status', status);
+    const params = new URLSearchParams();
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    if (status) params.append('status', status);
 
     return this.request(`/orders?${params.toString()}`, {
       method: 'GET',
-      headers: { 'x-user-id': userId },
+      headers: {
+        ...this.defaultHeaders,
+        'x-user-id': userId,
+      },
+    });
+  }
+
+  async getOrder(orderId: string, userId: string): Promise<ApiResponse<Order>> {
+    if (!orderId) {
+      return {
+        success: false,
+        error: 'Order ID is required',
+      };
+    }
+
+    return this.request<Order>(`/orders/${orderId}`, {
+      method: 'GET',
+      headers: {
+        ...this.defaultHeaders,
+        'x-user-id': userId,
+      },
     });
   }
 
@@ -242,10 +319,10 @@ class ApiService {
     signature: string,
     userId: string
   ): Promise<ApiResponse> {
-    return this.request('/payment/verify', {
+    return this.request('/razorpay/verify-payment', {
       method: 'POST',
       headers: { 'x-user-id': userId },
-      body: JSON.stringify({ orderId, paymentId, signature }),
+      body: JSON.stringify({ order_id: orderId, payment_id: paymentId, signature }),
     });
   }
 

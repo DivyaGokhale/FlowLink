@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { useNavigate } from 'react-router-dom';
 import { apiService } from '../lib/api';
 import { app } from "../lib/firebase";
+import { API_BASE } from "../config";
 import {
   getAuth,
   GoogleAuthProvider,

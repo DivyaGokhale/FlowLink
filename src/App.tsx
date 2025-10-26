@@ -1,6 +1,8 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import Header from "./components/Header";
 import Footer from "./components/Footer";
 
@@ -14,6 +16,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import OrderHistory from "./pages/OrderHistory";
 import Profile from "./pages/Profile";
+import OrderConfirmed from "./pages/OrderConfirmed";
 import Addresses from "./pages/account/Addresses";
 import LoginSecurity from "./pages/account/LoginSecurity";
 import ManagePayments from "./pages/account/ManagePayments";
@@ -58,7 +61,6 @@ const AppContent = () => {
   
   return (
     <>
-      <ScrollToTop />
       <Header />
       <main className="flex-grow">
       <AnimatePresence mode="wait">
@@ -89,6 +91,28 @@ const AppContent = () => {
                     path="/:shop/category/:category"
                     element={<AnimatedRoute><CategoryPage /></AnimatedRoute>}
                   />
+                  {/* Order Confirmation Routes */}
+                  <Route
+                    path="/order-confirmed/:orderId"
+                    element={
+                      <AnimatedRoute>
+                        <ProtectedRoute>
+                          <OrderConfirmed />
+                        </ProtectedRoute>
+                      </AnimatedRoute>
+                    }
+                  />
+                  <Route
+                    path="/:shop/order-confirmed/:orderId"
+                    element={
+                      <AnimatedRoute>
+                        <ProtectedRoute>
+                          <OrderConfirmed />
+                        </ProtectedRoute>
+                      </AnimatedRoute>
+                    }
+                  />
+
                   <Route
                     path="/:shop/payment"
                     element={
@@ -249,17 +273,27 @@ const AppContent = () => {
 
 const App = () => {
   return (
-    <Router>
-      <ToastProvider>
-        <CartProvider>
-          <AuthProvider>
-            <AddressProvider>
-              <AppContent />
-            </AddressProvider>
-          </AuthProvider>
-        </CartProvider>
-      </ToastProvider>
-    </Router>
+    <ToastProvider>
+      <CartProvider>
+        <AuthProvider>
+          <AddressProvider>
+            <ScrollToTop />
+            <ToastContainer 
+              position="top-right"
+              autoClose={5000}
+              hideProgressBar={false}
+              newestOnTop={false}
+              closeOnClick
+              rtl={false}
+              pauseOnFocusLoss
+              draggable
+              pauseOnHover
+            />
+            <AppContent />
+          </AddressProvider>
+        </AuthProvider>
+      </CartProvider>
+    </ToastProvider>
   );
 };
 

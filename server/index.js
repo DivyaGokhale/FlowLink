@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { body, validationResult } from 'express-validator';
+import razorpayRoutes from './routes/razorpay.js';
 
 // Resolve root .env even when starting from server/
 const __filename = fileURLToPath(import.meta.url);
@@ -53,9 +54,16 @@ function isLocked(entry, now) {
 
 const app = express();
 
-// Middleware
+// Middleware - must be defined before routes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors());
+
+// Serve static files from public directory
+app.use(express.static('public'));
+
+// Mount routes
+app.use('/api/razorpay', razorpayRoutes);
 
 // Simple CORS configuration for development
 app.use((req, res, next) => {
@@ -948,65 +956,13 @@ app.post(base + '/orders', [
     res.status(201).json({ 
       success: true,
       message: 'Order created successfully',
+      data: order,  // Include the created order in the response
       orderId: order._id.toString(), 
       id: order._id.toString(), 
       ...order.toObject() 
     });
   } catch (err) {
     console.error('Create order error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Razorpay: Create order
-app.post(base + '/razorpay/create-order', [
-  body('amount').isInt({ min: 1 }).withMessage('Amount must be a positive integer'),
-  body('currency').isLength({ min: 3, max: 3 }).withMessage('Currency must be 3 characters'),
-  body('receipt').notEmpty().withMessage('Receipt is required'),
-  handleValidationErrors
-], async (req, res) => {
-  try {
-    const { amount, currency, receipt, notes } = req.body;
-    
-    // In a real implementation, you would call Razorpay API here
-    // For now, we'll create a mock order ID
-    const mockOrderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    res.json({
-      success: true,
-      order_id: mockOrderId,
-      amount: amount,
-      currency: currency,
-      receipt: receipt
-    });
-  } catch (err) {
-    console.error('Create Razorpay order error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Razorpay: Verify payment
-app.post(base + '/razorpay/verify-payment', [
-  body('order_id').notEmpty().withMessage('Order ID is required'),
-  body('payment_id').notEmpty().withMessage('Payment ID is required'),
-  body('signature').notEmpty().withMessage('Payment signature is required'),
-  handleValidationErrors
-], async (req, res) => {
-  try {
-    const { order_id, payment_id, signature } = req.body;
-    
-    // In a real implementation, you would verify the signature using Razorpay's crypto
-    // For now, we'll always return true for demo purposes
-    const isValidSignature = true; // Replace with actual signature verification
-    
-    res.json({
-      success: true,
-      verified: isValidSignature,
-      order_id: order_id,
-      payment_id: payment_id
-    });
-  } catch (err) {
-    console.error('Verify Razorpay payment error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1054,6 +1010,77 @@ app.post(base + '/payment/verify', [
     }
   } catch (err) {
     console.error('Payment verification error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Orders: Get single order
+app.get(base + '/orders/:orderId', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    
+    const { orderId } = req.params;
+    if (!orderId) return res.status(400).json({ error: 'Order ID is required' });
+
+    // Find the order
+    const order = await Order.findById(orderId).lean();
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Check if user has access to this order
+    const isAdmin = String(userId) === String(ADMIN_USER_ID);
+    if (!isAdmin && String(order.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json({
+      success: true,
+      data: order
+    });
+
+  } catch (err) {
+    console.error('Get order error:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ error: 'Invalid order ID format' });
+    }
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Orders: Update order
+app.patch(base + '/orders/:orderId', async (req, res) => {
+  try {
+    const userId = req.header('x-user-id');
+    if (!userId) return res.status(401).json({ error: 'Authentication required' });
+    
+    const { orderId } = req.params;
+    const updateData = req.body;
+
+    // Find and update the order
+    const order = await Order.findById(orderId);
+    if (!order) return res.status(404).json({ error: 'Order not found' });
+
+    // Check if user has access to update this order
+    const isAdmin = String(userId) === String(ADMIN_USER_ID);
+    if (!isAdmin && String(order.userId) !== String(userId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Update order fields
+    Object.assign(order, updateData);
+    await order.save();
+
+    res.json({
+      success: true,
+      message: 'Order updated successfully',
+      data: order
+    });
+
+  } catch (err) {
+    console.error('Update order error:', err);
+    if (err.name === 'CastError') {
+      return res.status(400).json({ error: 'Invalid order ID format' });
+    }
     res.status(500).json({ error: 'Server error' });
   }
 });

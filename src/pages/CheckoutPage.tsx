@@ -3,11 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { useAddress } from '../components/AddressContext';
 import { useCart } from '../components/CartContext';
+import AddressForm from '../components/AddressForm';
 import { useToast } from '../components/ToastContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import Button from '../components/ui/Button';
-import AddressForm from '../components/AddressForm';
+import { Button } from '../components/ui/button';
+// Remove AddressForm import as it's causing issues
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -36,9 +37,8 @@ const CheckoutPage: React.FC = () => {
     }
     
     // Select the address before proceeding
-    const address = addresses.find(addr => addr.id === selectedAddressId);
-    if (address) {
-      selectAddress(address);
+    if (selectedAddressId) {
+      selectAddress(selectedAddressId); // Pass the ID directly
       navigate(`/${shop || ''}/payment`);
     }
   };
@@ -55,7 +55,6 @@ const CheckoutPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header />
       
       <main className="flex-grow container mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold mb-6">Checkout</h1>
