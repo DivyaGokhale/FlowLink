@@ -22,7 +22,7 @@ const ManagePayments = () => {
   const goBack = () => {
     navigate(shop ? `/${shop}/profile` : '/profile');
   };
-  
+
   // Sample data - replace with actual data from your API/state
   const [paymentMethods, setPaymentMethods] = useState<{
     cards: PaymentMethod[];
@@ -90,12 +90,11 @@ const ManagePayments = () => {
           )}
         </div>
         <ChevronDown
-          className={`w-5 h-5 text-gray-500 transition-transform ${
-            expandedSection === key ? 'transform rotate-180' : ''
-          }`}
+          className={`w-5 h-5 text-gray-500 transition-transform ${expandedSection === key ? 'transform rotate-180' : ''
+            }`}
         />
       </button>
-      
+
       {expandedSection === key && (
         <div className="px-6 pb-4">
           {methods.length > 0 ? (
@@ -136,7 +135,7 @@ const ManagePayments = () => {
           ) : (
             <p className="text-gray-500 text-sm mb-4">No payment methods added yet.</p>
           )}
-          
+
           <Button
             onClick={onAdd}
             variant="outline"
@@ -152,13 +151,13 @@ const ManagePayments = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
-      <button 
+      <button
         onClick={goBack}
         className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors text-sm"
       >
         <ChevronLeft className="w-4 h-4 mr-1" />
       </button>
-      
+
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
           Your Payment Options

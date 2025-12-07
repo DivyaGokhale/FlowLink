@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateEmail = async (newEmail: string, password: string) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       setIsLoading(true);
       // In a real app, you would verify the current password first
@@ -86,7 +86,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updatePassword = async (currentPassword: string, newPassword: string) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       setIsLoading(true);
       const response = await fetch(`${API_BASE}/auth/update-password`, {
@@ -116,20 +116,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const updateProfile = async (updates: { displayName?: string; phone?: string }) => {
     if (!user) throw new Error('User not authenticated');
-    
+
     try {
       setIsLoading(true);
-      
+
       // Call the API to update the profile
       const response = await apiService.updateProfile(user.id, updates);
-      
+
       if (!response.success) {
         throw new Error(response.message || 'Failed to update profile');
       }
-      
+
       // Update local user state with the new data
       setUser(prev => (prev ? { ...prev, ...updates } : null));
-      
+
       // Update localStorage if needed
       const authData = localStorage.getItem('auth');
       if (authData) {
@@ -142,7 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }));
       }
-      
+
       return true;
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to update profile';
@@ -175,7 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (shop) params.set('shop', shop);
       const email = (emailHint || user?.email || '').trim();
       if (email) params.set('email', email);
-      const headers: Record<string,string> = {};
+      const headers: Record<string, string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/auth/eligibility?${params.toString()}`, { headers });
       if (!res.ok) { setVipEligible(false); return; }
@@ -202,12 +202,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
   // Infer shop slug from URL or localStorage so the auth API can map to seller
-  const RESERVED_PATHS = new Set(["login","signup","product","addToCart","payment","shop","orders","order"])
+  const RESERVED_PATHS = new Set(["login", "signup", "product", "addToCart", "payment", "shop", "orders", "order"])
   const guessShop = () => {
     try {
       const saved = localStorage.getItem("shopSlug")
       if (saved) return saved
-    } catch {}
+    } catch { }
     const seg = (typeof window !== 'undefined' ? window.location.pathname : '').split('/').filter(Boolean)[0] || ''
     return RESERVED_PATHS.has(seg) ? '' : seg
   }
@@ -215,19 +215,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch(`${API_BASE}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password, shop: guessShop() || undefined }),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || errorData.message || "Login failed");
       }
-      
+
       const data = await res.json();
       setToken(data.token);
       setUser(data.user);
@@ -235,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Persist shop slug for future navigations and API calls
       if (data?.shopSlug) {
-        try { localStorage.setItem('shopSlug', String(data.shopSlug)); } catch {}
+        try { localStorage.setItem('shopSlug', String(data.shopSlug)); } catch { }
       }
 
       return { shopSlug: data?.shopSlug };
@@ -251,19 +251,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (payload: { name?: string; email: string; password: string }) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       const res = await fetch(`${API_BASE}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, shop: guessShop() || undefined }),
       });
-      
+
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.error || errorData.message || "Registration failed");
       }
-      
+
       // Some backends return token+user on register; support both flows
       try {
         const data = await res.json();
@@ -285,22 +285,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const socialLogin = async (providerName: "google" | "microsoft") => {
-    const auth = getAuth(app);
-    const provider =
-      providerName === "google"
-        ? new GoogleAuthProvider()
-        : new OAuthProvider("microsoft.com");
-    const result = await signInWithPopup(auth, provider as any);
-    const fUser = result.user;
-    const idToken = await fUser.getIdToken();
-    const profile = {
-      id: fUser.uid,
-      name: fUser.displayName || "",
-      email: fUser.email || "",
-    };
-    setUser(profile);
-    setToken(idToken);
-    await refreshEligibility(profile.email);
+    try {
+      setIsLoading(true);
+      setError(null);
+      const auth = getAuth(app);
+      const provider =
+        providerName === "google"
+          ? new GoogleAuthProvider()
+          : new OAuthProvider("microsoft.com");
+
+      const result = await signInWithPopup(auth, provider as any);
+      const fUser = result.user;
+
+      // Sync with backend
+      const res = await fetch(`${API_BASE}/auth/social-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: fUser.email,
+          name: fUser.displayName || '',
+          providerId: providerName,
+          shop: guessShop() || undefined
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        console.error("Social login server error:", errData);
+        throw new Error(errData.error || errData.message || 'Failed to synchronize login with server');
+      }
+
+      const data = await res.json();
+
+      // Use backend data
+      setUser(data.user);
+      setToken(data.token);
+
+      if (data?.shopSlug) {
+        try { localStorage.setItem('shopSlug', String(data.shopSlug)); } catch { }
+      }
+
+      await refreshEligibility(data.user.email);
+    } catch (err: any) {
+      console.error("Social login error:", err);
+      setError(err.message || "Login failed");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loginWithGoogle = () => socialLogin("google");
@@ -308,15 +339,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     const auth = getAuth(app);
-    try { signOut(auth); } catch {}
+    try { signOut(auth); } catch { }
     setToken(null);
     setUser(null);
     localStorage.removeItem("auth");
     localStorage.removeItem("cart"); // Clear cart from localStorage
-    
+
     // Dispatch a custom event to notify other components about logout
     window.dispatchEvent(new Event('userLoggedOut'));
-    
+
     setVipEligible(false);
   };
 

@@ -40,7 +40,9 @@ const OrderHistory: React.FC = () => {
       setError(null);
       const ADMIN_ID = (import.meta as any).env?.VITE_ADMIN_USER_ID;
       const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
-      let effectiveUserId = ADMIN_ID || user?.id || "";
+      // FIX: Prioritize the logged-in user's ID for "Global View". 
+      // Only use valid ADMIN_ID if user is not present (which shouldn't happen here due to checks).
+      let effectiveUserId = user?.id || ADMIN_ID || "";
       // If a shop slug exists, resolve mapped owner
       if (shop) {
         try {
@@ -49,12 +51,19 @@ const OrderHistory: React.FC = () => {
             const sdata = await sres.json();
             if (sdata?.userId) effectiveUserId = String(sdata.userId);
           }
-        } catch {}
+        } catch { }
       }
 
       try {
         if (!effectiveUserId) throw new Error("Missing user ID");
-        const res = await fetch(`${API_BASE}/orders`, {
+
+        const url = shop
+          ? `${API_BASE}/orders`
+          : `${API_BASE}/orders?view=customer`;
+
+        console.log('Fetching orders from:', url, { shop, effectiveUserId });
+
+        const res = await fetch(url, {
           headers: {
             "Content-Type": "application/json",
             "x-user-id": effectiveUserId,
@@ -88,6 +97,7 @@ const OrderHistory: React.FC = () => {
         }));
         setOrders(normalized);
       } catch (e: any) {
+        console.error("Order fetch error:", e);
         setError(e?.message || "Failed to fetch orders. Please try again later.");
         setOrders([]);
       } finally {

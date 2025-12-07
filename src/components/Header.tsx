@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 
 import { useAuth } from "./AuthContext";
+import { useAddress } from "./AddressContext";
 import Skeleton from "./ui/Skeleton";
 
 // Icons
@@ -20,14 +21,6 @@ const ProfileIcon = () => (
   <svg width={23} height={23} fill="none">
     <circle cx="11.5" cy="8" r="4.5" stroke="currentColor" />
     <rect x="4" y="15" width="15" height="6" rx="3" stroke="currentColor" />
-  </svg>
-);
-
-// Simple bell alert icon
-const AlertIcon = () => (
-  <svg width={23} height={23} fill="none">
-    <path d="M12 6v8" stroke="currentColor" strokeWidth={2} />
-    <circle cx="12" cy="18" r="2" fill="currentColor" />
   </svg>
 );
 
@@ -62,9 +55,19 @@ const Header = () => {
         : 0;
     } catch { return 0; }
   });
+
   const { isAuthenticated, logout, user } = useAuth();
-  const { shop } = useParams<{ shop?: string }>();
+  const { selectedAddress, getDefaultAddress } = useAddress();
+
+  const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // Derive shop from URL manually
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const firstSegment = pathSegments[0];
+  const reservedRoutes = ['login', 'signup', 'orders', 'profile', 'account', 'shop', 'category', 'payment', 'addToCart', 'review', 'order-confirmed', 'product'];
+  const shop = firstSegment && !reservedRoutes.includes(firstSegment) ? firstSegment : undefined;
+
   const [shopInfo, setShopInfo] = useState<any>(null);
   const [shopLoading, setShopLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -107,7 +110,7 @@ const Header = () => {
   // Persist current shop slug for auth flows and redirects
   useEffect(() => {
     if (shop) {
-      try { localStorage.setItem('shopSlug', String(shop)); } catch {}
+      try { localStorage.setItem('shopSlug', String(shop)); } catch { }
     }
   }, [shop]);
 
@@ -116,19 +119,19 @@ const Header = () => {
     try {
       const q = searchParams.get('q') || '';
       setQuery(q);
-    } catch {}
+    } catch { }
   }, [searchParams]);
 
   const submitSearch = () => {
     const q = (query || '').trim();
     let base = '/shop';
     if (shop) {
-      base = `/${shop}/checkout`;
+      base = `/${shop}/shop`;
     } else {
       try {
         const persisted = localStorage.getItem('shopSlug');
-        if (persisted) base = `/${persisted}/checkout`;
-      } catch {}
+        if (persisted) base = `/${persisted}/shop`;
+      } catch { }
     }
     const url = q ? `${base}?q=${encodeURIComponent(q)}` : base;
     navigate(url);
@@ -142,10 +145,89 @@ const Header = () => {
     setShopLoading(true);
     fetch(`${baseUrl}/shops/${encodeURIComponent(shop)}`)
       .then(async (res) => { if (!ignore && res.ok) { const data = await res.json(); setShopInfo(data); } })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => { if (!ignore) setShopLoading(false); });
     return () => { ignore = true; };
   }, [shop]);
+
+  // Geolocation for first-time users
+  useEffect(() => {
+    // Only if no saved addresses (first time user scenario)
+    const hasAddresses = !!localStorage.getItem('userAddresses'); // Check legacy just in case
+    // We can also check if we have any addresses in context but context might load later.
+    // Ideally we check if "userCurrentLocation" is already saved.
+
+    // Logic: If we already have a detected location, don't ask again.
+    const savedLoc = localStorage.getItem('userCurrentLocation');
+    if (savedLoc) return;
+
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        let success = false;
+
+        // 1. Try Google Maps
+        try {
+          const apiKey = (import.meta as any).env.VITE_FIREBASE_API_KEY;
+          if (apiKey) {
+            const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${latitude},${longitude}&key=${apiKey}`);
+            const data = await res.json();
+
+            if (data.results && data.results.length > 0) {
+              const result = data.results[0];
+              let city = '';
+              let state = '';
+
+              result.address_components.forEach((c: any) => {
+                if (c.types.includes('locality')) city = c.long_name;
+                if (c.types.includes('administrative_area_level_1')) state = c.long_name;
+              });
+
+              if (!city) {
+                result.address_components.forEach((c: any) => {
+                  if (c.types.includes('administrative_area_level_2')) city = c.long_name;
+                });
+              }
+
+              if (city && state) {
+                const locString = `${city}, ${state}`;
+                localStorage.setItem('userCurrentLocation', locString);
+                success = true;
+                window.location.reload();
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Geolocation error (Google):", err);
+        }
+
+        // 2. Fallback to OpenStreetMap
+        if (!success) {
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await res.json();
+
+            if (data && data.address) {
+              const addr = data.address;
+              const city = addr.city || addr.town || addr.village || addr.county;
+              const state = addr.state;
+
+              if (city && state) {
+                const locString = `${city}, ${state}`;
+                localStorage.setItem('userCurrentLocation', locString);
+                window.location.reload();
+              }
+            }
+          } catch (err) {
+            console.error("Geolocation error (OSM):", err);
+          }
+        }
+
+      }, (err) => {
+        console.log("Geolocation permission denied or error:", err);
+      });
+    }
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-[#131921] text-white shadow-md">
@@ -171,9 +253,25 @@ const Header = () => {
           </button>
 
           {/* Location */}
-          <span className="hidden md:inline-flex items-center text-sm text-gray-200 mr-2">
+          <span className="hidden md:inline-flex items-center text-sm text-gray-200 mr-2 cursor-pointer hover:text-white transition-colors" onClick={() => navigate(shop ? `/${shop}/account/addresses` : "/account/addresses")}>
             <LocationIcon />
-            <span className="mx-2">Delivery to Ratnagiri, Maharashtra</span>
+            <span className="mx-2 truncate max-w-[200px]">
+              {(() => {
+                // 1. Try to show Selected Address from Context
+                if (selectedAddress) return `Delivery to ${selectedAddress.city}, ${selectedAddress.state}`;
+
+                // 2. Try Default Address from Context
+                const def = getDefaultAddress();
+                if (def) return `Delivery to ${def.city}, ${def.state}`;
+
+                // 3. Fallback to Detected Location (first time user)
+                const detected = localStorage.getItem('userCurrentLocation');
+                if (detected) return `Delivery to ${detected}`;
+
+                // 4. Final Fallback
+                return "Delivery to location";
+              })()}
+            </span>
             <span className="text-sm">▼</span>
           </span>
 
@@ -185,7 +283,7 @@ const Header = () => {
                 width="18" height="18" viewBox="0 0 24 24" fill="none"
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M21 21l-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               <input
                 type="text"
@@ -208,10 +306,8 @@ const Header = () => {
 
           {/* Icons */}
           <nav className="ml-auto flex items-center gap-4 sm:gap-6">
-            
-
             <button
-              onClick={() => navigate(shop ? `/${shop}/addToCart` : "/addToCart")}
+              onClick={() => navigate(shop ? `/${shop}/cart` : "/addToCart")}
               aria-label={`Open cart${cartCount > 0 ? ` with ${cartCount} items` : ''}`}
               className="relative flex flex-col items-center text-xs sm:text-sm cursor-pointer hover:text-green-400 transition-colors"
             >

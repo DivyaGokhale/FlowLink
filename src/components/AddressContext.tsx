@@ -1,7 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext'; // To get token
+import { API_BASE } from '../config';
 
 export interface Address {
   id: string;
+  _id?: string;
   type: string;
   name: string;
   line1: string;
@@ -19,144 +22,189 @@ export interface Address {
 interface AddressContextType {
   addresses: Address[];
   selectedAddress: Address | null;
-  addAddress: (address: Omit<Address, 'id'>) => string; // Returns the ID of the added address
-  updateAddress: (id: string, address: Partial<Omit<Address, 'id'>>) => void;
-  deleteAddress: (id: string) => void;
+  addAddress: (address: Omit<Address, 'id'>) => Promise<string>; // Changed to Promise
+  updateAddress: (id: string, address: Partial<Omit<Address, 'id'>>) => Promise<void>;
+  deleteAddress: (id: string) => Promise<void>;
   selectAddress: (id: string) => void;
   getDefaultAddress: () => Address | null;
-  setDefaultAddress: (id: string) => void; // New method to set default address
+  setDefaultAddress: (id: string) => Promise<void>;
+  loading: boolean;
 }
 
 const AddressContext = createContext<AddressContextType | undefined>(undefined);
 
 export const AddressProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token, isAuthenticated } = useAuth();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Load addresses from localStorage on mount
+  // Helper to get shop slug for API context
+  const getShopContext = () => {
+    // 1. Try localStorage (set by AuthContext on login)
+    const stored = localStorage.getItem('shopSlug');
+    if (stored) return stored;
+
+    // 2. Try URL
+    const path = window.location.pathname;
+    const parts = path.split('/').filter(Boolean);
+    const reserved = ["login", "signup", "account", "cart", "checkout", "orders"];
+    if (parts.length > 0 && !reserved.includes(parts[0])) {
+      return parts[0];
+    }
+    return '';
+  };
+
+  // Fetch addresses when authenticated
   useEffect(() => {
-    const stored = localStorage.getItem('userAddresses');
-    if (stored) {
+    if (!isAuthenticated || !token) {
+      setAddresses([]);
+      return;
+    }
+
+    const fetchAddresses = async () => {
+      setLoading(true);
       try {
-        const parsedAddresses = JSON.parse(stored);
-        setAddresses(parsedAddresses);
+        const shop = getShopContext();
+        const res = await fetch(`${API_BASE}/customer/addresses?shop=${shop}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAddresses(data);
 
-        // Set selected address (default or first one)
-        const selectedId = localStorage.getItem('selectedAddressId');
-        if (selectedId) {
-          const found = parsedAddresses.find((addr: Address) => addr.id === selectedId);
-          if (found) setSelectedAddress(found);
-        } else if (parsedAddresses.length > 0) {
-          const defaultAddr = parsedAddresses.find((addr: Address) => addr.isDefault) || parsedAddresses[0];
-          setSelectedAddress(defaultAddr);
-          localStorage.setItem('selectedAddressId', defaultAddr.id);
+          // Set default selected
+          if (data.length > 0) {
+            const defaultAddr = data.find((a: Address) => a.isDefault) || data[0];
+            setSelectedAddress(defaultAddr);
+          }
         }
-      } catch (error) {
-        console.error('Error loading addresses:', error);
+      } catch (err) {
+        console.error("Failed to fetch addresses:", err);
+      } finally {
+        setLoading(false);
       }
-    }
-  }, []);
+    };
 
-  // Save addresses to localStorage whenever addresses change
-  useEffect(() => {
-    if (addresses.length > 0) {
-      localStorage.setItem('userAddresses', JSON.stringify(addresses));
-    }
-  }, [addresses]);
+    fetchAddresses();
+  }, [isAuthenticated, token]);
 
-  // Save selected address ID to localStorage
+  // Sync selected address to localStorage for persistence during session (cart/checkout flow)
   useEffect(() => {
     if (selectedAddress) {
       localStorage.setItem('selectedAddressId', selectedAddress.id);
-      // Also save to the format expected by PaymentPage
       localStorage.setItem('selectedAddress', JSON.stringify({
-        type: selectedAddress.type,
-        address: `${selectedAddress.name}, ${selectedAddress.line1}${selectedAddress.line2 ? ', ' + selectedAddress.line2 : ''}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postalCode}`,
-        time: selectedAddress.time || '25 mins',
-        distance: 3.0 // Default distance for delivery calculation
+        type: selectedAddress.type || 'Home',
+        address: `${selectedAddress.name}, ${selectedAddress.line1} ${selectedAddress.city} ${selectedAddress.postalCode}`,
+        time: '25 mins'
       }));
     }
   }, [selectedAddress]);
 
-  const addAddress = (newAddress: Omit<Address, 'id'>) => {
-    const id = `addr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const address: Address = {
-      ...newAddress,
-      id,
-    };
+  const addAddress = async (newAddress: Omit<Address, 'id'>) => {
+    if (!token) throw new Error("Not authenticated");
 
-    setAddresses(prev => {
-      // If this is the first address or marked as default, set as default
-      if (prev.length === 0 || address.isDefault) {
-        const updated = prev.map(addr => ({ ...addr, isDefault: false }));
-        const newAddresses = [...updated, { ...address, isDefault: true }];
-        // Update selected address if this is the first one or it's set as default
-        if (prev.length === 0 || address.isDefault) {
-          setSelectedAddress({ ...address, id });
-        }
-        return newAddresses;
-      }
-      return [...prev, address];
-    });
-
-    return id; // Return the generated ID
-  };
-
-  const updateAddress = (id: string, updates: Partial<Omit<Address, 'id'>>) => {
-    setAddresses(prev => {
-      const updated = prev.map(addr => {
-        if (addr.id === id) {
-          const updatedAddr = { ...addr, ...updates };
-          // If this address is being set as default, update the selected address
-          if (updates.isDefault) {
-            setSelectedAddress(updatedAddr);
-          }
-          return updatedAddr;
-        }
-        // If another address was set as default, unset it
-        if (updates.isDefault === true && addr.isDefault) {
-          return { ...addr, isDefault: false };
-        }
-        return addr;
+    try {
+      const shop = getShopContext();
+      const res = await fetch(`${API_BASE}/customer/addresses?shop=${shop}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(newAddress)
       });
-      return updated;
-    });
+
+      if (!res.ok) throw new Error("Failed to add address");
+
+      const savedAddr = await res.json();
+
+      setAddresses(prev => {
+        // Logic to handle isDefault if backend didn't already
+        // Backend handles distinct default, so we just append/replace
+        if (savedAddr.isDefault) {
+          return [...prev.map(a => ({ ...a, isDefault: false })), savedAddr];
+        }
+        return [...prev, savedAddr];
+      });
+
+      // If it's the first one or default, select it
+      if (savedAddr.isDefault || addresses.length === 0) {
+        setSelectedAddress(savedAddr);
+      }
+
+      return savedAddr.id;
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   };
 
-  const deleteAddress = (id: string) => {
-    setAddresses(prev => {
-      const filtered = prev.filter(addr => addr.id !== id);
-      // If deleted address was selected, select another one
-      if (selectedAddress?.id === id) {
-        const newSelected = filtered.find(addr => addr.isDefault) || filtered[0] || null;
-        setSelectedAddress(newSelected);
+  const updateAddress = async (id: string, updates: Partial<Omit<Address, 'id'>>) => {
+    if (!token) throw new Error("Not authenticated");
+    if (!id) throw new Error("Address ID missing");
+    try {
+      const shop = getShopContext();
+      const res = await fetch(`${API_BASE}/customer/addresses/${id}?shop=${shop}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+
+      if (!res.ok) throw new Error("Failed to update address");
+      const updatedAddr = await res.json();
+
+      setAddresses(prev => prev.map(a => a.id === id ? updatedAddr : (updates.isDefault ? { ...a, isDefault: false } : a)));
+
+      if (selectedAddress?.id === id || updatedAddr.isDefault) {
+        setSelectedAddress(updatedAddr);
       }
-      return filtered;
-    });
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
+  };
+
+
+
+  const deleteAddress = async (id: string) => {
+    if (!token) throw new Error("Not authenticated");
+    if (!id) throw new Error("Address ID missing");
+    try {
+      const shop = getShopContext();
+      const res = await fetch(`${API_BASE}/customer/addresses/${id}?shop=${shop}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+
+      setAddresses(prev => {
+        const filtered = prev.filter(a => a.id !== id);
+        if (selectedAddress?.id === id) {
+          setSelectedAddress(filtered.find(a => a.isDefault) || filtered[0] || null);
+        }
+        return filtered;
+      });
+    } catch (err) {
+      console.error(err);
+      throw err;
+    }
   };
 
   const selectAddress = (id: string) => {
     const address = addresses.find(addr => addr.id === id);
-    if (address) {
-      setSelectedAddress(address);
-    }
+    if (address) setSelectedAddress(address);
   };
 
-  const setDefaultAddress = (id: string) => {
-    setAddresses(prev => {
-      // Update the addresses array to set the specified address as default
-      // and unset any other default addresses
-      return prev.map(addr => ({
-        ...addr,
-        isDefault: addr.id === id
-      }));
-    });
-    
-    // Update the selected address to the new default
-    const newDefault = addresses.find(addr => addr.id === id);
-    if (newDefault) {
-      setSelectedAddress(newDefault);
-    }
+  const setDefaultAddress = async (id: string) => {
+    await updateAddress(id, { isDefault: true });
   };
 
   const getDefaultAddress = () => {
@@ -172,6 +220,7 @@ export const AddressProvider: React.FC<{ children: React.ReactNode }> = ({ child
     selectAddress,
     getDefaultAddress,
     setDefaultAddress,
+    loading
   };
 
   return (

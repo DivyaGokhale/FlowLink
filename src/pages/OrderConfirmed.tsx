@@ -66,9 +66,9 @@ const OrderConfirmed: React.FC = () => {
       }
 
       try {
-        const response = await apiService.getOrder(orderId, user?.id || "");
+        const response = await apiService.getOrder(orderId, user?.id || "", token || "");
         console.log('Order details response:', response); // Debug log
-        
+
         if (response.success && response.data) {
           // Transform the API response to match our OrderDetails interface
           const orderData: OrderDetails = {
@@ -94,7 +94,7 @@ const OrderConfirmed: React.FC = () => {
               transactionId: response.data.payment?.transactionId || ''
             }
           };
-          
+
           setOrder(orderData);
         } else {
           setError(response.error || "Failed to load order details");
@@ -396,7 +396,7 @@ const OrderConfirmed: React.FC = () => {
                       {order.payment.status === 'success' ? 'Payment Successful' : 'Order Confirmed'}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {order.payment.method === 'COD' 
+                      {order.payment.method === 'COD'
                         ? 'Your order has been confirmed. Payment will be collected at the time of delivery.'
                         : order.payment.status === 'success'
                           ? 'Your payment has been processed successfully. Your order is being prepared.'

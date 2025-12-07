@@ -44,7 +44,7 @@ const ensureValidCart = (cart: any): CartItem[] => {
       console.warn('Cart is not an array, resetting to empty array');
       return [];
     }
-    
+
     // Ensure each item has required fields
     return cart
       .filter((item: any) => item && (item.id || item._id))
@@ -71,7 +71,7 @@ const getInitialCart = (): CartItem[] => {
   try {
     const saved = localStorage.getItem("cart");
     if (!saved) return [];
-    
+
     const parsed = JSON.parse(saved);
     if (!Array.isArray(parsed)) {
       console.warn('Invalid cart data in localStorage, resetting to empty array');
@@ -89,7 +89,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
-  
+
   // Ensure cart is always an array
   const safeCart = Array.isArray(cart) ? cart : [];
 
@@ -113,6 +113,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Only save if cart is a valid array
       if (Array.isArray(cart)) {
         localStorage.setItem("cart", JSON.stringify(cart));
+        // Dispatch event for same-tab updates
+        window.dispatchEvent(new Event("cart-updated"));
       } else {
         console.error('Cannot save cart: cart is not an array', cart);
         // Reset to empty array if cart is invalid
@@ -126,7 +128,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addToCart = useCallback(async (product: Product, quantity: number = 1) => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
       // Ensure we have required fields
       if (!product || (!product.id && !product._id)) {
@@ -141,9 +143,9 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCart((prev) => {
         // Ensure prev is an array
         const currentCart = Array.isArray(prev) ? [...prev] : [];
-        
+
         // Check if product already in cart
-        const existingItemIndex = currentCart.findIndex(item => 
+        const existingItemIndex = currentCart.findIndex(item =>
           item.id === productId || item._id === productId
         );
 
@@ -215,7 +217,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getTotalPrice = useCallback(() => {
     try {
       if (!Array.isArray(cart) || cart.length === 0) return 0;
-      
+
       return cart.reduce((total, item) => {
         const price = Number(item?.price) || 0;
         const quantity = Math.max(1, Math.floor(Number(item?.quantity)) || 1);
@@ -230,7 +232,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const getTotalItems = useCallback(() => {
     try {
       if (!Array.isArray(cart) || cart.length === 0) return 0;
-      
+
       return cart.reduce((total, item) => {
         return total + Math.max(1, Math.floor(Number(item?.quantity)) || 1);
       }, 0);
@@ -253,7 +255,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     window.addEventListener('userLoggedOut', handleLogout);
-    
+
     return () => {
       window.removeEventListener('userLoggedOut', handleLogout);
     };

@@ -13,7 +13,8 @@ const CartSummary: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const s = localStorage.getItem("cart");
-      return s ? JSON.parse(s) : [];
+      const parsed = s ? JSON.parse(s) : [];
+      return Array.isArray(parsed) ? parsed.filter((i: any) => i && (i._id || i.id)) : [];
     } catch {
       return [] as CartItem[];
     }
@@ -34,7 +35,7 @@ const CartSummary: React.FC = () => {
       try {
         const s = localStorage.getItem("cart");
         if (s) setCartItems(JSON.parse(s));
-      } catch {}
+      } catch { }
     };
     const onVisibility = () => { if (!document.hidden) sync(); };
     window.addEventListener("visibilitychange", onVisibility);
@@ -52,7 +53,7 @@ const CartSummary: React.FC = () => {
   const clearCart = () => {
     setCartItems([]);
     localStorage.setItem("cart", "[]");
-    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+    try { window.dispatchEvent(new Event("cart-updated")); } catch { }
   };
 
   // 🧮 Pricing
@@ -78,7 +79,7 @@ const CartSummary: React.FC = () => {
           </div>
           <div className="text-sm space-y-2">
             <div className="flex justify-between">
-              <span>Subtotal ({cartItems.reduce((n,i)=>n+i.quantity,0)} items)</span>
+              <span>Subtotal ({cartItems.reduce((n, i) => n + i.quantity, 0)} items)</span>
               <span>₹{subtotal}</span>
             </div>
             <div className="flex justify-between">
@@ -86,7 +87,7 @@ const CartSummary: React.FC = () => {
               <span>₹{delivery}</span>
             </div>
             <div className="flex justify-between">
-              <span>GST ({Math.round(gstRate*100)}%)</span>
+              <span>GST ({Math.round(gstRate * 100)}%)</span>
               <span>₹{gst}</span>
             </div>
             <div className="flex justify-between font-semibold text-base border-t pt-2">
@@ -95,7 +96,7 @@ const CartSummary: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => navigate(shop ? `/${shop}/payment` : "/payment")}
+            onClick={() => navigate(shop ? `/${shop}/checkout` : "/checkout")}
             className="mt-4 w-full h-10 rounded-full bg-[hsl(var(--primary))] hover:brightness-95 text-white font-medium shadow-button"
           >
             Proceed to Buy

@@ -24,7 +24,8 @@ function AddToCart() {
   const [cartItems, setCartItems] = useState<Product[]>(() => {
     try {
       const s = localStorage.getItem("cart");
-      return s ? JSON.parse(s) : [];
+      const parsed = s ? JSON.parse(s) : [];
+      return Array.isArray(parsed) ? parsed.filter((i: any) => i && (i._id || i.id)) : [];
     } catch {
       return [] as Product[];
     }
@@ -49,7 +50,7 @@ function AddToCart() {
       }
 
       localStorage.setItem("cart", JSON.stringify(updatedCart));
-      try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+      try { window.dispatchEvent(new Event("cart-updated")); } catch { }
     }
   }, [product]);
 
@@ -81,14 +82,14 @@ function AddToCart() {
       .filter((it) => (it.quantity || 0) > 0);
     setCartItems(updated);
     localStorage.setItem("cart", JSON.stringify(updated));
-    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+    try { window.dispatchEvent(new Event("cart-updated")); } catch { }
   };
 
   const removeItem = (_id: string) => {
     const updated = cartItems.filter((it) => it._id !== _id);
     setCartItems(updated);
     localStorage.setItem("cart", JSON.stringify(updated));
-    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+    try { window.dispatchEvent(new Event("cart-updated")); } catch { }
   };
 
   return (
@@ -99,12 +100,12 @@ function AddToCart() {
         <section className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-6 items-start">
           {/* Left side - Cart items */}
           <div>
-            {/* Address strip (only when logged in) */}
-            {isAuthenticated && (
+            {/* Address strip removed as per user request to avoid duplication */}
+            {/* {isAuthenticated && (
               <div className="mb-4">
                 <AddressSelector />
               </div>
-            )}
+            )} */}
             <div className="bg-white/90 backdrop-blur border border-gray-200 rounded-lg shadow-card p-4">
               <h1 className="text-xl font-semibold mb-3">Shopping Cart</h1>
               <div className="hidden md:flex justify-between text-xs text-gray-500 border-b pb-2">

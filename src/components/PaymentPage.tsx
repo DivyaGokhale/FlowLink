@@ -15,7 +15,7 @@ const PaymentPage: React.FC = () => {
   const { shop } = useParams<{ shop?: string }>();
   const { token, user } = useAuth() || {};
   const { selectedAddress } = useAddress() || {};
-  const { cart = [], clearCart = () => {}, getTotalPrice = () => 0 } = useCart() || {};
+  const { cart = [], clearCart = () => { }, getTotalPrice = () => 0 } = useCart() || {};
   const { showToast } = useToast() || {};
 
   const [isProcessing, setIsProcessing] = useState(false);
@@ -75,7 +75,7 @@ const PaymentPage: React.FC = () => {
         customerPhone: selectedAddress?.phone || "",
       };
 
-      const createResp = await apiService.createOrder(payload, user?.id || token || "");
+      const createResp = await apiService.createOrder(payload, user?.id || "", token || "", shop);
       if (!createResp?.success || !createResp?.data?._id) {
         throw new Error(createResp?.error || createResp?.message || "Failed to create order");
       }
@@ -85,7 +85,7 @@ const PaymentPage: React.FC = () => {
       if (method === "cod") {
         await apiService.updateOrder(orderId, {
           payment: { method: "cod", status: "confirmed", transactionId: `COD-${orderId}` },
-        }, user?.id || token || "");
+        }, user?.id || "", token || "");
 
         clearCart();
         localStorage.removeItem("cart");
@@ -104,17 +104,17 @@ const PaymentPage: React.FC = () => {
             description: `Order #${orderId}`,
           },
           {
-            onSuccess: async (res) => {
+            onSuccess: async (paymentRes) => {
               try {
                 await apiService.verifyPayment(
-                  res.razorpay_order_id,
-                  res.razorpay_payment_id,
-                  res.razorpay_signature,
-                  user?.id || token || ""
+                  paymentRes.razorpay_order_id,
+                  paymentRes.razorpay_payment_id,
+                  paymentRes.razorpay_signature,
+                  user?.id || ""
                 );
                 await apiService.updateOrder(orderId, {
-                  payment: { method: "razorpay", status: "Completed", transactionId: res.razorpay_payment_id },
-                }, user?.id || token || "");
+                  payment: { method: "razorpay", status: "Completed", transactionId: paymentRes.razorpay_payment_id },
+                }, user?.id || "", token || "");
                 showToast("Payment successful!", "success");
                 clearCart();
                 localStorage.removeItem("cart");
@@ -165,7 +165,7 @@ const PaymentPage: React.FC = () => {
             </button>
           </div>
         </div>
-        
+
       </div>
     );
   }
@@ -223,9 +223,8 @@ const PaymentPage: React.FC = () => {
                 {/* Payment Options */}
                 <div className="space-y-3">
                   {paymentMethods.map((opt) => (
-                    <label key={opt.value} className={`flex items-center border rounded-lg p-3 cursor-pointer transition-all ${
-                      method === opt.value ? "border-green-500 bg-green-50" : "border-gray-200 hover:bg-gray-50"
-                    }`}>
+                    <label key={opt.value} className={`flex items-center border rounded-lg p-3 cursor-pointer transition-all ${method === opt.value ? "border-green-500 bg-green-50" : "border-gray-200 hover:bg-gray-50"
+                      }`}>
                       <input
                         type="radio"
                         name="method"
@@ -247,9 +246,8 @@ const PaymentPage: React.FC = () => {
                 <button
                   onClick={handleContinue}
                   disabled={isProcessing}
-                  className={`w-full mt-6 py-3 px-4 rounded-lg font-medium text-white ${
-                    isProcessing ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
-                  } transition-colors`}
+                  className={`w-full mt-6 py-3 px-4 rounded-lg font-medium text-white ${isProcessing ? "bg-green-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+                    } transition-colors`}
                 >
                   {isProcessing ? (
                     <div className="flex items-center justify-center">
@@ -293,4 +291,3 @@ const PaymentPage: React.FC = () => {
 };
 
 export default PaymentPage;
-

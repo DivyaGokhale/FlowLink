@@ -23,11 +23,10 @@ const AddressCard: React.FC<AddressCardProps> = ({
 
   return (
     <div
-      className={`p-4 border rounded-xl shadow-sm cursor-pointer transition-all duration-300 relative ${
-        isSelected
+      className={`p-4 border rounded-xl shadow-sm cursor-pointer transition-all duration-300 relative ${isSelected
           ? "border-green-500 ring-2 ring-green-200 bg-green-50"
           : "border-gray-200 hover:border-gray-300"
-      }`}
+        }`}
       onClick={() => onSelect(address.id)}
     >
       <div className="flex justify-between items-start mb-2">
@@ -79,11 +78,10 @@ const AddressCard: React.FC<AddressCardProps> = ({
       )}
 
       <button
-        className={`w-full py-2 rounded-lg font-semibold text-center transition-colors duration-300 ${
-          isSelected
+        className={`w-full py-2 rounded-lg font-semibold text-center transition-colors duration-300 ${isSelected
             ? "bg-green-600 text-white shadow-md hover:bg-green-700"
             : "bg-gray-200 text-gray-500 cursor-not-allowed"
-        }`}
+          }`}
         disabled={!isSelected}
       >
         {isSelected ? "Selected" : "Select Address"}
@@ -148,19 +146,24 @@ const AddressSelector: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-            {addresses.map((addr) => (
-              <AddressCard
-                key={addr.id}
-                address={addr}
-                isSelected={selectedAddress?.id === addr.id}
-                onSelect={handleAddressSelect}
-                onEdit={(id) => {
-                  // TODO: Implement edit functionality
-                  console.log('Edit address:', id);
-                }}
-                onDelete={deleteAddress}
-              />
-            ))}
+            {addresses
+              .filter(addr => addr.id || (addr as any)._id)
+              .map((addr) => {
+                const effectiveId = addr.id || (addr as any)._id;
+                return (
+                  <AddressCard
+                    key={effectiveId}
+                    address={{ ...addr, id: effectiveId }} // Ensure ID is present in prop
+                    isSelected={selectedAddress?.id === effectiveId}
+                    onSelect={(id) => handleAddressSelect(id)}
+                    onEdit={(id) => {
+                      // TODO: Implement edit functionality
+                      console.log('Edit address:', id);
+                    }}
+                    onDelete={(id) => deleteAddress(id)}
+                  />
+                );
+              })}
             <AddNewAddressCard onAdd={handleAddNew} />
           </div>
         )}

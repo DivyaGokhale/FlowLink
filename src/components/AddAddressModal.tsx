@@ -79,7 +79,7 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -115,9 +115,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                 value={formData.name}
                 onChange={(e) => handleChange('name', e.target.value)}
                 placeholder="Enter full name"
-                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                  errors.name ? 'border-red-500' : 'border-gray-200'
-                }`}
+                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.name ? 'border-red-500' : 'border-gray-200'
+                  }`}
               />
               {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
             </div>
@@ -129,9 +128,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                 value={formData.line1}
                 onChange={(e) => handleChange('line1', e.target.value)}
                 placeholder="House no., street name"
-                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                  errors.line1 ? 'border-red-500' : 'border-gray-200'
-                }`}
+                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.line1 ? 'border-red-500' : 'border-gray-200'
+                  }`}
               />
               {errors.line1 && <p className="text-red-500 text-sm mt-1">{errors.line1}</p>}
             </div>
@@ -155,9 +153,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                   value={formData.city}
                   onChange={(e) => handleChange('city', e.target.value)}
                   placeholder="City"
-                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                    errors.city ? 'border-red-500' : 'border-gray-200'
-                  }`}
+                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.city ? 'border-red-500' : 'border-gray-200'
+                    }`}
                 />
                 {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
               </div>
@@ -168,9 +165,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                   value={formData.state}
                   onChange={(e) => handleChange('state', e.target.value)}
                   placeholder="State"
-                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                    errors.state ? 'border-red-500' : 'border-gray-200'
-                  }`}
+                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.state ? 'border-red-500' : 'border-gray-200'
+                    }`}
                 />
                 {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state}</p>}
               </div>
@@ -184,9 +180,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                   value={formData.postalCode}
                   onChange={(e) => handleChange('postalCode', e.target.value)}
                   placeholder="123456"
-                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                    errors.postalCode ? 'border-red-500' : 'border-gray-200'
-                  }`}
+                  className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.postalCode ? 'border-red-500' : 'border-gray-200'
+                    }`}
                 />
                 {errors.postalCode && <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>}
               </div>
@@ -208,9 +203,8 @@ const AddAddressModal: React.FC<AddAddressModalProps> = ({ isOpen, onClose }) =>
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="10-digit mobile number"
-                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${
-                  errors.phone ? 'border-red-500' : 'border-gray-200'
-                }`}
+                className={`w-full border p-3 rounded-lg focus:ring-2 focus:ring-green-500/40 outline-none ${errors.phone ? 'border-red-500' : 'border-gray-200'
+                  }`}
               />
               {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
             </div>

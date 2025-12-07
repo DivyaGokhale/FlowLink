@@ -31,11 +31,19 @@ const getSessionCache = (key: string): ProductDoc[] | null => {
   } catch { return null; }
 };
 const setSessionCache = (key: string, value: ProductDoc[]) => {
-  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch {}
+  try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { }
 };
 
-const CategoryPage: React.FC = () => {
-  const { category, shop } = useParams<{ category: string; shop?: string }>();
+interface CategoryPageProps {
+  type?: 'category' | 'brand';
+}
+
+const CategoryPage: React.FC<CategoryPageProps> = ({ type = 'category' }) => {
+  const params = useParams<{ category?: string; brand?: string; shop?: string }>();
+  const shop = params.shop;
+  // If type is brand, use 'brand' param, else 'category' param
+  const value = type === 'brand' ? params.brand : params.category;
+
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<ProductDoc[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +59,7 @@ const CategoryPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const key = `cat:${shop || "_"}:${category || "_"}`;
+    const key = `${type}:${shop || "_"}:${value || "_"}`;
     const cached = categoryCache.get(key) || getSessionCache(key);
     if (cached && cached.length) {
       setProducts(cached);
@@ -64,7 +72,9 @@ const CategoryPage: React.FC = () => {
     const load = async () => {
       setError(null);
       try {
-        const apiUrl = `${baseUrl}/products/category/${encodeURIComponent(category || "")}${shop ? `?shop=${encodeURIComponent(shop)}` : ""}`;
+        // Fetch from /products/category/:val or /products/brand/:val
+        const endpoint = type === 'brand' ? 'brand' : 'category';
+        const apiUrl = `${baseUrl}/products/${endpoint}/${encodeURIComponent(value || "")}${shop ? `?shop=${encodeURIComponent(shop)}` : ""}`;
         const res = await fetch(apiUrl, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
@@ -97,9 +107,17 @@ const CategoryPage: React.FC = () => {
           image: d.image,
           description: d.description || d.desc,
         }));
-        const filtered = (category
-          ? mapped.filter((p) => (p.category || "").toLowerCase() === decodeURIComponent(category!).toLowerCase())
-          : mapped);
+
+        // Filter locally if API failed
+        const filtered = mapped.filter((p) => {
+          if (type === 'brand') {
+            const q = (value || "").toLowerCase();
+            return (p.title || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q);
+          } else {
+            return (p.category || "").toLowerCase() === decodeURIComponent(value!).toLowerCase();
+          }
+        });
+
         if (cancelled) return;
         categoryCache.set(key, filtered);
         setSessionCache(key, filtered);
@@ -112,7 +130,7 @@ const CategoryPage: React.FC = () => {
     };
     load();
     return () => { cancelled = true; controller.abort(); };
-  }, [category, shop, baseUrl]);
+  }, [value, shop, baseUrl, type]);
 
   const VIP_OFF = 15;
   const priceBounds = useMemo(() => {
@@ -157,15 +175,14 @@ const CategoryPage: React.FC = () => {
       default:
         break;
     }
-
     return list;
   }, [products, search, inStockOnly, minPrice, maxPrice, sortBy]);
 
   return (
     <>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl sm:text-3xl font-semibold">{category ? decodeURIComponent(category) : "Category"}</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 h-[calc(100vh-64px)] flex flex-col">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
+          <h1 className="text-2xl sm:text-3xl font-semibold">{value ? decodeURIComponent(value) : (type === 'brand' ? "Brand" : "Category")}</h1>
           <div className="flex items-center gap-3">
             <label className="text-sm text-gray-600">Sort by</label>
             <select
@@ -186,8 +203,8 @@ const CategoryPage: React.FC = () => {
         ) : error ? (
           <div className="text-center text-red-600 py-10">{error}</div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6">
-            <aside className="md:sticky md:top-[84px] h-max bg-white/90 backdrop-blur border border-gray-200 rounded-xl p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-[260px_1fr] gap-6 flex-1 min-h-0">
+            <aside className="hidden md:block h-full overflow-y-auto pr-2 bg-white/90 backdrop-blur border border-gray-200 rounded-xl p-4 shadow-sm [&::-webkit-scrollbar]:hidden">
               <div className="mb-4">
                 <input
                   type="text"
@@ -227,57 +244,57 @@ const CategoryPage: React.FC = () => {
               </div>
             </aside>
 
-            <section>
+            <section className="h-full overflow-y-auto pr-2 pb-20 [&::-webkit-scrollbar]:hidden">
               <div className="text-sm text-gray-600 mb-3">{display.length} results</div>
               {display.length === 0 ? (
                 <div className="text-gray-600">No products match your filters.</div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
                   {display.map((p, i) => {
-              const img = Array.isArray(p.images) && p.images.length ? p.images[0] : (p.image || "/favicon.ico");
-              const base = Number((p as any).discountedPrice ?? p.price ?? 0);
-              const vipOff = vipEligible ? VIP_OFF : 0;
-              const finalPrice = Math.max(0, base - vipOff);
-              const mrp = Number(p.mrp || 0);
-              const discount = mrp && mrp > base ? Math.round(((mrp - base) / mrp) * 100) : 0;
+                    const img = Array.isArray(p.images) && p.images.length ? p.images[0] : (p.image || "/favicon.ico");
+                    const base = Number((p as any).discountedPrice ?? p.price ?? 0);
+                    const vipOff = vipEligible ? VIP_OFF : 0;
+                    const finalPrice = Math.max(0, base - vipOff);
+                    const mrp = Number(p.mrp || 0);
+                    const discount = mrp && mrp > base ? Math.round(((mrp - base) / mrp) * 100) : 0;
 
                     return (
                       <motion.div
-                  key={p._id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: (i % 12) * 0.03 }}
-                  className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col"
-                >
-                  <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
-                    <img src={img} alt={p.title || p.name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
-                  </div>
-                  <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || p.name}</div>
-                  <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>
-                    {mrp && mrp > base && (
-                      <>
-                        <div className="text-xs line-through text-gray-400">{currency(mrp)}</div>
-                        <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
-                      </>
-                    )}
-                    {vipEligible && vipOff > 0 && (
-                      <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5">VIP -₹{VIP_OFF}</span>
-                    )}
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
-                    <button onClick={() => {
-                      const existing = JSON.parse(localStorage.getItem("cart") || "[]");
-                      const item = { _id: String(p._id), name: (p.title || p.name || "Untitled"), price: finalPrice, image: img, quantity: 1 };
-                      const updated = existing.some((it: any) => it._id === item._id)
-                        ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
-                        : [...existing, item];
-                      localStorage.setItem("cart", JSON.stringify(updated));
-                      try { window.dispatchEvent(new Event("cart-updated")); } catch {}
-                    }} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
-                  </div>
+                        key={p._id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: (i % 12) * 0.03 }}
+                        className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col h-full"
+                      >
+                        <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
+                          <img src={img} alt={p.title || p.name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
+                        </div>
+                        <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || p.name}</div>
+                        <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
+                        <div className="mt-2 flex items-baseline gap-2 flex-wrap">
+                          <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>
+                          {mrp && mrp > base && (
+                            <>
+                              <div className="text-xs line-through text-gray-400">{currency(mrp)}</div>
+                              <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5 whitespace-nowrap">{discount}% off</span>
+                            </>
+                          )}
+                          {vipEligible && vipOff > 0 && (
+                            <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5 whitespace-nowrap">VIP -₹{VIP_OFF}</span>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 mt-auto">
+                          <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
+                          <button onClick={() => {
+                            const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+                            const item = { _id: String(p._id), name: (p.title || p.name || "Untitled"), price: finalPrice, image: img, quantity: 1 };
+                            const updated = existing.some((it: any) => it._id === item._id)
+                              ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
+                              : [...existing, item];
+                            localStorage.setItem("cart", JSON.stringify(updated));
+                            try { window.dispatchEvent(new Event("cart-updated")); } catch { }
+                          }} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
+                        </div>
                       </motion.div>
                     );
                   })}

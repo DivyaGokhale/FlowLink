@@ -20,6 +20,8 @@ import OrderConfirmed from "./pages/OrderConfirmed";
 import Addresses from "./pages/account/Addresses";
 import LoginSecurity from "./pages/account/LoginSecurity";
 import ManagePayments from "./pages/account/ManagePayments";
+import CheckoutPage from "./pages/CheckoutPage";
+import AIChatWidget from "./components/AIChatWidget";
 
 // Components
 import AddToCart from "./components/AddToCart";
@@ -35,11 +37,11 @@ import { AddressProvider } from "./components/AddressContext";
 // ScrollToTop component is now inside the Router context
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [pathname]);
-  
+
   return null;
 };
 
@@ -58,216 +60,218 @@ const AnimatedRoute = ({ children }: { children: React.ReactNode }) => (
 
 const AppContent = () => {
   const location = useLocation();
-  
+
   return (
     <>
       <Header />
       <main className="flex-grow">
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname.split('/')[1] || 'home'}>
-                  {/* 🔐 Auth Routes */}
-                  {/* Auth Routes */}
-                  <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
-                  <Route path="/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
-                  <Route path="/:shop/account" element={<AnimatedRoute><Login /></AnimatedRoute>} />
-                  <Route path="/:shop/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname.split('/')[1] || 'home'}>
+            {/* 🔐 Auth Routes */}
+            {/* Auth Routes */}
+            {/* 🔐 Auth Routes */}
+            <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
+            <Route path="/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
+            <Route path="/:shop/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
+            <Route path="/:shop/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
+            <Route path="/:shop/account" element={<AnimatedRoute><Login /></AnimatedRoute>} />
 
-                  {/* Shop Routes */}
-                  <Route path="/:shop" element={<AnimatedRoute><Landingpage /></AnimatedRoute>} />
-                  <Route path="/:shop/checkout" element={<AnimatedRoute><Shop /></AnimatedRoute>} />
+            {/* Shop Routes */}
+            <Route path="/:shop" element={<AnimatedRoute><Landingpage /></AnimatedRoute>} />
+            <Route path="/:shop/shop" element={<AnimatedRoute><Shop /></AnimatedRoute>} />
+            <Route path="/:shop/checkout" element={<AnimatedRoute><CheckoutPage /></AnimatedRoute>} />
+            <Route path="/checkout" element={<AnimatedRoute><CheckoutPage /></AnimatedRoute>} />
 
-                  {/* ✅ Fixed ProductDetails routes with key */}
-                  <Route
-                    path="/:shop/product/:id"
-                    element={<AnimatedRoute><ProductDetails /></AnimatedRoute>}
-                  />
-                  <Route
-                    path="/product/:id"
-                    element={<AnimatedRoute><ProductDetails /></AnimatedRoute>}
-                  />
+            {/* ✅ Fixed ProductDetails routes with key */}
+            <Route
+              path="/:shop/product/:id"
+              element={<AnimatedRoute><ProductDetails /></AnimatedRoute>}
+            />
+            <Route
+              path="/product/:id"
+              element={<AnimatedRoute><ProductDetails /></AnimatedRoute>}
+            />
 
-                  {/* 🧭 Category + Cart + Payments */}
-                  <Route
-                    path="/:shop/category/:category"
-                    element={<AnimatedRoute><CategoryPage /></AnimatedRoute>}
-                  />
-                  {/* Order Confirmation Routes */}
-                  <Route
-                    path="/order-confirmed/:orderId"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <OrderConfirmed />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route
-                    path="/:shop/order-confirmed/:orderId"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <OrderConfirmed />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
+            {/* 🧭 Category + Cart + Payments */}
+            <Route
+              path="/:shop/category/:category"
+              element={<AnimatedRoute><CategoryPage type="category" /></AnimatedRoute>}
+            />
+            <Route
+              path="/category/:category"
+              element={<AnimatedRoute><CategoryPage type="category" /></AnimatedRoute>}
+            />
+            <Route
+              path="/:shop/brand/:brand"
+              element={<AnimatedRoute><CategoryPage type="brand" /></AnimatedRoute>}
+            />
+            <Route
+              path="/brand/:brand"
+              element={<AnimatedRoute><CategoryPage type="brand" /></AnimatedRoute>}
+            />
 
-                  <Route
-                    path="/:shop/payment"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <PaymentPage />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route path="/:shop/cart" element={<AnimatedRoute><AddToCart /></AnimatedRoute>} />
-                  <Route
-                    path="/:shop/review"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <ReviewPage />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
+            {/* Order Confirmation Routes */}
+            <Route
+              path="/order-confirmed/:orderId"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <OrderConfirmed />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/:shop/order-confirmed/:orderId"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <OrderConfirmed />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
 
-                  {/* Orders + Profile (Shop-based) */}
-                  <Route path="/:shop/orders" element={<AnimatedRoute><OrderHistory /></AnimatedRoute>} />
-                  <Route
-                    path="/:shop/profile"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <Profile />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
+            <Route
+              path="/:shop/payment"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <PaymentPage />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/payment"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <PaymentPage />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route path="/:shop/cart" element={<AnimatedRoute><AddToCart /></AnimatedRoute>} />
+            <Route path="/addToCart" element={<AnimatedRoute><AddToCart /></AnimatedRoute>} />
+            <Route path="/cart" element={<AnimatedRoute><AddToCart /></AnimatedRoute>} />
 
-                  {/* Global Routes */}
-                  <Route path="/orders" element={<AnimatedRoute><OrderHistory /></AnimatedRoute>} />
-                  <Route
-                    path="/profile"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <Profile />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  
-                  {/* Payment Management */}
-                  <Route
-                    path="/account/payments"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <ManagePayments />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route
-                    path="/:shop/account/payments"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <ManagePayments />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
+            <Route
+              path="/:shop/review"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <ReviewPage />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/review"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <ReviewPage />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
 
-                  {/* Address Management */}
-                  <Route
-                    path="/account/addresses"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <Addresses />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route
-                    path="/:shop/account/addresses"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <Addresses />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  
-                  {/* Login & Security */}
-                  <Route
-                    path="/account/login-security"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <LoginSecurity />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route
-                    path="/profile/payments"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <ManagePayments />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route
-                    path="/:shop/account/login-security"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <LoginSecurity />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route path="/" element={<AnimatedRoute><Landingpage /></AnimatedRoute>} />
-                  <Route path="/shop" element={<AnimatedRoute><Shop /></AnimatedRoute>} />
-                  <Route
-                    path="/category/:category"
-                    element={<AnimatedRoute><CategoryPage /></AnimatedRoute>}
-                  />
-                  <Route
-                    path="/payment"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <PaymentPage />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-                  <Route path="/addToCart" element={<AnimatedRoute><AddToCart /></AnimatedRoute>} />
-                  <Route
-                    path="/review"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <ReviewPage />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
-        </Routes>
-      </AnimatePresence>
-    </main>
-    <Footer />
-  </>
+            {/* Orders + Profile (Shop-based) */}
+            <Route path="/:shop/orders" element={<AnimatedRoute><OrderHistory /></AnimatedRoute>} />
+            <Route
+              path="/:shop/profile"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+
+            {/* Global Routes */}
+            <Route path="/orders" element={<AnimatedRoute><OrderHistory /></AnimatedRoute>} />
+            <Route
+              path="/profile"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+
+            {/* Account Management Routes */}
+            <Route
+              path="/account/addresses"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <Addresses />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/:shop/account/addresses"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <Addresses />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+
+            <Route
+              path="/account/payments"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <ManagePayments />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/:shop/account/payments"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <ManagePayments />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+
+            <Route
+              path="/account/login-security"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <LoginSecurity />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+            <Route
+              path="/:shop/account/login-security"
+              element={
+                <AnimatedRoute>
+                  <ProtectedRoute>
+                    <LoginSecurity />
+                  </ProtectedRoute>
+                </AnimatedRoute>
+              }
+            />
+          </Routes>
+        </AnimatePresence>
+      </main>
+      <Footer />
+      <AIChatWidget />
+    </>
   );
 };
 
@@ -278,7 +282,7 @@ const App = () => {
         <AuthProvider>
           <AddressProvider>
             <ScrollToTop />
-            <ToastContainer 
+            <ToastContainer
               position="top-right"
               autoClose={5000}
               hideProgressBar={false}

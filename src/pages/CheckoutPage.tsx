@@ -5,8 +5,13 @@ import { useAddress } from '../components/AddressContext';
 import { useCart } from '../components/CartContext';
 import AddressForm from '../components/AddressForm';
 import { useToast } from '../components/ToastContext';
-import { Button } from '../components/ui/button';
-// Remove AddressForm import as it's causing issues
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { MapPin, Package, Truck, CreditCard, Plus, Phone, Home, Building2 } from 'lucide-react';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
@@ -15,137 +20,218 @@ const CheckoutPage: React.FC = () => {
   const { addresses, selectedAddress, selectAddress } = useAddress();
   const { cart, getTotalPrice } = useCart();
   const { showToast } = useToast();
-  
-  const [showAddressForm, setShowAddressForm] = useState(false);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
 
-  // Set initial selected address
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+
+  const subtotal = getTotalPrice();
+  const deliveryCharge = subtotal > 0 ? 50 : 0;
+  const total = subtotal + deliveryCharge;
+
+  // Auto-select default or first address
   useEffect(() => {
     if (selectedAddress) {
       setSelectedAddressId(selectedAddress.id);
-    } else if (addresses.length > 0) {
-      setSelectedAddressId(addresses[0].id);
+    } else {
+      const defaultAddr = addresses.find(a => a.isDefault);
+      setSelectedAddressId(defaultAddr?.id || addresses[0]?.id || null);
     }
-  }, [selectedAddress, addresses]);
+  }, [addresses, selectedAddress]);
 
-  const handleProceedToPayment = () => {
+  const handleProceed = () => {
     if (!selectedAddressId) {
-      showToast('Please select or add a delivery address', 'error');
+      showToast('Please select a delivery address', 'error');
       return;
     }
-    
-    // Select the address before proceeding
-    if (selectedAddressId) {
-      selectAddress(selectedAddressId); // Pass the ID directly
-      navigate(`/${shop || ''}/payment`);
-    }
+    selectAddress(selectedAddressId);
+    navigate(`/${shop || ''}/payment`);
   };
 
-  if (!isAuthenticated) {
-    navigate(`/${shop || ''}/login`, { state: { from: 'checkout' } });
-    return null;
-  }
+  // Guards
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate(`/${shop || ''}/login`, { state: { from: 'checkout' } });
+    } else if (cart.length === 0) {
+      navigate(`/${shop || ''}/cart`);
+    }
+  }, [isAuthenticated, cart.length, navigate, shop]);
 
-  if (cart.length === 0) {
-    navigate(`/${shop || ''}/cart`);
+  if (!isAuthenticated || cart.length === 0) {
     return null;
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      
-      <main className="flex-grow container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-6">Checkout</h1>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Address Selection */}
-          <div className="md:col-span-2 space-y-6">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Delivery Address</h2>
-              
-              {!showAddressForm ? (
-                <>
-                  <div className="space-y-4 mb-6">
-                    {addresses.length > 0 ? (
-                      addresses.map((address) => (
-                        <div 
-                          key={address.id}
-                          className={`border rounded-lg p-4 cursor-pointer ${
-                            selectedAddressId === address.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                          }`}
-                          onClick={() => setSelectedAddressId(address.id)}
-                        >
-                          <div className="flex items-start">
-                            <input
-                              type="radio"
-                              name="address"
-                              checked={selectedAddressId === address.id}
-                              onChange={() => setSelectedAddressId(address.id)}
-                              className="mt-1 mr-3"
-                            />
-                            <div>
-                              <p className="font-medium">{address.name}</p>
-                              <p className="text-gray-600">
-                                {address.line1}, {address.line2 && `${address.line2}, `}
-                                {address.city}, {address.state} - {address.postalCode}
-                              </p>
-                              <p className="text-gray-600">Phone: {address.phone}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
+    <div className="min-h-screen bg-gray-50">
+      {/* Clean Header */}
+      <header className="bg-white border-b">
+        <div className="container mx-auto px-4 py-5">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+            <CreditCard className="w-7 h-7 text-blue-600" />
+            Checkout
+          </h1>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8 max-w-7xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left: Address + Items */}
+          <div className="lg:col-span-2 space-y-8">
+
+            {/* Delivery Address */}
+            <Card className="border shadow-sm">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold flex items-center gap-3">
+                  <MapPin className="w-6 h-6 text-blue-600" />
+                  1. Delivery Address
+                </h2>
+              </div>
+
+              <div className="p-6">
+                {!showAddressForm ? (
+                  <>
+                    {addresses.length === 0 ? (
+                      <div className="text-center py-12">
+                        <MapPin className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+                        <p className="text-gray-500 mb-6">You haven't saved any address yet</p>
+                        <Button onClick={() => setShowAddressForm(true)}>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Add Address
+                        </Button>
+                      </div>
                     ) : (
-                      <p className="text-gray-500">No addresses found. Please add a delivery address.</p>
+                      <RadioGroup value={selectedAddressId || ''} onValueChange={setSelectedAddressId}>
+                        <div className="space-y-4">
+                          {addresses.map((addr) => (
+                            <Label
+                              key={addr.id}
+                              htmlFor={addr.id}
+                              className="flex gap-4 p-5 border rounded-lg cursor-pointer hover:border-gray-400 transition-colors has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50"
+                            >
+                              <RadioGroupItem value={addr.id} id={addr.id} />
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <span className="font-semibold text-lg">{addr.name}</span>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {addr.type === 'home' ? <Home className="w-3 h-3 mr-1" /> : <Building2 className="w-3 h-3 mr-1" />}
+                                    {addr.type}
+                                  </Badge>
+                                  {addr.isDefault && <Badge className="bg-blue-100 text-blue-700">Default</Badge>}
+                                </div>
+                                <p className="text-gray-700">
+                                  {addr.line1}{addr.line2 && `, ${addr.line2}`}
+                                  <br />
+                                  {addr.city}, {addr.state} - {addr.postalCode}
+                                </p>
+                                <p className="text-sm text-gray-600 flex items-center gap-2">
+                                  <Phone className="w-4 h-4" />
+                                  {addr.phone}
+                                </p>
+                              </div>
+                            </Label>
+                          ))}
+                        </div>
+                      </RadioGroup>
                     )}
+
+                    <Button
+                      variant="outline"
+                      className="w-full mt-6"
+                      onClick={() => {
+                        setSelectedAddressId(null);
+                        setShowAddressForm(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add New Address
+                    </Button>
+                  </>
+                ) : (
+                  <div className="border-t -mx-6 px-6 pt-6">
+                    <AddressForm
+                      onSuccess={() => {
+                        setShowAddressForm(false);
+                        showToast('Address saved successfully', 'success');
+                      }}
+                      onCancel={() => setShowAddressForm(false)}
+                    />
                   </div>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowAddressForm(true)}
-                    className="w-full"
-                  >
-                    + Add New Address
-                  </Button>
-                </>
-              ) : (
-                <AddressForm 
-                  onSuccess={() => {
-                    setShowAddressForm(false);
-                    showToast('Address added successfully', 'success');
-                  }}
-                  onCancel={() => setShowAddressForm(false)}
-                />
-              )}
-            </div>
-          </div>
-          
-          {/* Order Summary */}
-          <div className="md:col-span-1">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Order Summary</h2>
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>₹{getTotalPrice().toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Delivery</span>
-                  <span>₹50.00</span>
-                </div>
-                <div className="border-t pt-2 mt-2 font-semibold flex justify-between">
-                  <span>Total</span>
-                  <span>₹{(getTotalPrice() + 50).toFixed(2)}</span>
+                )}
+              </div>
+            </Card>
+
+            {/* Order Items */}
+            <Card className="border shadow-sm">
+              <div className="p-6 border-b">
+                <h2 className="text-xl font-semibold flex items-center gap-3">
+                  <Package className="w-6 h-6 text-blue-600" />
+                  2. Order Items ({cart.length})
+                </h2>
+              </div>
+              <div className="p-6 space-y-4">
+                {cart.map((item) => (
+                  <div key={item.id} className="flex items-center gap-4">
+                    {item.image ? (
+                      <img src={item.image} alt={item.name} className="w-16 h-16 rounded-lg object-cover bg-gray-100 flex-shrink-0" />
+                    ) : (
+                      <div className="bg-gray-200 border-2 border-dashed rounded-lg w-16 h-16 flex-shrink-0" />
+                    )}
+                    <div className="flex-1">
+                      <h4 className="font-medium">{item.name}</h4>
+                      <p className="text-sm text-gray-500">Quantity: {item.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+                <Separator className="my-4" />
+                <div className="text-right text-lg font-semibold">
+                  Subtotal: ₹{subtotal.toFixed(2)}
                 </div>
               </div>
-              
-              <Button 
-                onClick={handleProceedToPayment}
-                disabled={!selectedAddressId}
-                className="w-full mt-4"
-              >
-                Proceed to Payment
-              </Button>
-            </div>
+            </Card>
+          </div>
+
+          {/* Right: Price Summary */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-24 border shadow-sm">
+              <div className="p-6 border-b bg-gray-50">
+                <h2 className="text-xl font-semibold flex items-center gap-3">
+                  <Truck className="w-6 h-6 text-blue-600" />
+                  Price Details
+                </h2>
+              </div>
+              <div className="p-6 space-y-4">
+                <div className="flex justify-between text-base">
+                  <span>Price ({cart.length} items)</span>
+                  <span>₹{subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-base">
+                  <span>Delivery Charges</span>
+                  <span className="text-green-600">
+                    {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge.toFixed(2)}`}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex justify-between text-lg font-bold">
+                  <span>Total Amount</span>
+                  <span className="text-blue-600">₹{total.toFixed(2)}</span>
+                </div>
+
+                <Button
+                  size="lg"
+                  className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-lg py-6"
+                  onClick={handleProceed}
+                  disabled={!selectedAddressId || showAddressForm}
+                >
+                  Proceed to Payment
+                </Button>
+
+                <p className="text-center text-xs text-gray-500 mt-4">
+                  Secured by SSL • Your information is safe
+                </p>
+              </div>
+            </Card>
           </div>
         </div>
       </main>

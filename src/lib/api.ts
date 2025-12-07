@@ -24,6 +24,8 @@ export interface Product {
   mrp?: number;
   quantity?: number;
   category?: string;
+  pack?: string;
+  brand?: string;
   images?: string[];
   discountedPrice?: number;
   discount?: {
@@ -238,41 +240,45 @@ class ApiService {
     shippingAddress: Address;
     customerEmail?: string;
     customerName?: string;
-  }, userId: string): Promise<ApiResponse<Order>> {
-    console.log('Creating order with data:', { ...orderData, userId });
-    
-    const response = await this.request<Order>('/orders', {
+  }, userId: string, token?: string, shop?: string): Promise<ApiResponse<Order>> {
+    console.log('Creating order with data:', { ...orderData, userId, shop });
+
+    const headers: Record<string, string> = {
+      'x-user-id': userId,
+      'Content-Type': 'application/json'
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const url = shop ? `/orders?shop=${encodeURIComponent(shop)}` : '/orders';
+
+    const response = await this.request<Order>(url, {
       method: 'POST',
-      headers: { 
-        'x-user-id': userId,
-        'Content-Type': 'application/json'
-      },
+      headers,
       body: JSON.stringify(orderData),
     });
-    
+
     console.log('Raw order response:', response);
-    
-    // Transform response if needed (in case server returns just the order object)
+
+    // Transform response if needed
     const formattedResponse: ApiResponse<Order> = {
       success: true,
       data: 'data' in response ? response.data : response as Order,
       message: 'message' in response ? response.message : 'Order created successfully'
     };
-    
-    console.log('Formatted order response:', formattedResponse);
-    
+
     if (!formattedResponse.data) {
       console.error('Missing order data in response');
       throw new Error('No data received in order response');
     }
-    
+
     return formattedResponse;
   }
 
-  async updateOrder(orderId: string, updateData: Partial<Order>, userId?: string): Promise<ApiResponse<Order>> {
+  async updateOrder(orderId: string, updateData: Partial<Order>, userId?: string, token?: string): Promise<ApiResponse<Order>> {
     const headers: Record<string, string> = {};
     if (userId) headers['x-user-id'] = userId;
-    
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     return this.request(`/orders/${orderId}`, {
       method: 'PATCH',
       headers,
@@ -295,7 +301,7 @@ class ApiService {
     });
   }
 
-  async getOrder(orderId: string, userId: string): Promise<ApiResponse<Order>> {
+  async getOrder(orderId: string, userId: string, token?: string): Promise<ApiResponse<Order>> {
     if (!orderId) {
       return {
         success: false,
@@ -303,12 +309,15 @@ class ApiService {
       };
     }
 
+    const headers: Record<string, string> = {
+      ...this.defaultHeaders,
+      'x-user-id': userId,
+    };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
     return this.request<Order>(`/orders/${orderId}`, {
       method: 'GET',
-      headers: {
-        ...this.defaultHeaders,
-        'x-user-id': userId,
-      },
+      headers,
     });
   }
 

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useToast } from "../components/ToastContext"; // ✅ import toast
+import { useToast } from "../components/ToastContext";
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
+import { useCart } from "../components/CartContext";
 
 interface Product {
   _id: string;
@@ -19,10 +20,9 @@ interface Product {
 const FeaturedProducts: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-  const { showToast } = useToast(); // ✅ get toast function
   const { user, vipEligible } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
-  
+
   // VIP discount amount
   const VIP_OFF = 15;
 
@@ -32,7 +32,7 @@ const FeaturedProducts: React.FC = () => {
       .then((res) => res.json())
       .then((data: any[]) => {
         const mapped: Product[] = (data || []).map((d) => ({
-          _id: String(d._id || d.id),
+          _id: String(d._id || d.id || d.sku || Math.random().toString(36).substr(2, 9)),
           name: d.title || d.name || "Untitled",
           category: d.category,
           pack: d.pack,
@@ -49,29 +49,20 @@ const FeaturedProducts: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const addToCart = (product: Product) => {
+  const { addToCart } = useCart(); // Use global cart context
+
+  const handleAddToCart = async (product: Product) => {
     // Calculate VIP price if eligible
     const basePrice = Number(product.price || 0);
     const vipPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
-    
+
     const productToAdd = {
       ...product,
+      id: product._id, // Ensure id is present for CartContext
       price: vipPrice
     };
 
-    const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
-    const updatedCart = existingCart.some((item: Product) => item._id === productToAdd._id)
-      ? existingCart.map((item: Product) =>
-          item._id === productToAdd._id
-            ? { ...item, quantity: (item.quantity || 1) + 1 }
-            : item
-        )
-      : [...existingCart, { ...productToAdd, quantity: 1 }];
-
-    localStorage.setItem("cart", JSON.stringify(updatedCart));
-    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
-    showToast(`✅ ${product.name} added to cart`);
+    await addToCart(productToAdd, 1);
   };
 
   if (loading) {
@@ -102,7 +93,7 @@ const FeaturedProducts: React.FC = () => {
           const displayPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
           const hasDiscount = product.mrp && product.mrp > displayPrice;
           const discount = hasDiscount ? Math.round(((product.mrp! - displayPrice) / product.mrp!) * 100) : 0;
-          
+
           return (
             <div
               key={product._id}
@@ -155,7 +146,7 @@ const FeaturedProducts: React.FC = () => {
                   View
                 </Link>
                 <button
-                  onClick={() => addToCart(product)}
+                  onClick={() => handleAddToCart(product)}
                   className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35"
                 >
                   Add to Cart
