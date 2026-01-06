@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
 import { apiService } from "../lib/api";
 import { formatPrice } from "../lib/utils";
 import { generateInvoicePDF } from "../lib/invoice";
+import { getSocket } from "../lib/socket"; // Import socket functionality
+import FeedbackModal from "../components/FeedbackModal";
 
 interface OrderItem {
   productId: string;
@@ -56,6 +58,33 @@ const OrderConfirmed: React.FC = () => {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Add state for order status that will be updated via WebSocket
+  const [orderStatus, setOrderStatus] = useState<string | null>(null);
+  const socketRef = useRef<any>(null);
+
+  // Prevent back navigation after payment completion
+  useEffect(() => {
+    // Add a new history entry so that when user presses back, 
+    // they go back to the page before the payment page
+    window.history.pushState(null, '', window.location.href);
+    
+    const handlePopState = () => {
+      // When back button is pressed, push the state back so they can't go back
+      window.history.pushState(null, '', window.location.href);
+      // Optionally, show a message or redirect to a safe page
+      if (order && order.payment.status === 'success') {
+        // If payment was successful, redirect to home or orders page
+        navigate(shop ? `/${shop}` : '/');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    
+    // Cleanup function
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [order, navigate, shop]);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -92,10 +121,37 @@ const OrderConfirmed: React.FC = () => {
               method: response.data.payment?.method || 'unknown',
               status: response.data.payment?.status || 'pending',
               transactionId: response.data.payment?.transactionId || ''
-            }
+            },
+            // Include status if available
+            status: response.data.status || 'ORDER_PLACED'
           };
           
           setOrder(orderData);
+          // Set initial status based on the order status from the API
+          let initialStatusMessage = '';
+          switch(response.data.status) {
+            case 'ORDER_PLACED':
+              initialStatusMessage = '📦 Order Placed';
+              break;
+            case 'PAYMENT_CONFIRMED':
+              initialStatusMessage = '✅ Payment Confirmed';
+              break;
+            case 'ORDER_CONFIRMED':
+              initialStatusMessage = '✅ Order Confirmed';
+              break;
+            case 'OUT_FOR_DELIVERY':
+              initialStatusMessage = '🚚 Out for Delivery';
+              break;
+            case 'DELIVERED':
+              initialStatusMessage = '📦 Delivered';
+              break;
+            case 'CANCELLED':
+              initialStatusMessage = '❌ Order Cancelled';
+              break;
+            default:
+              initialStatusMessage = 'Order Placed Successfully';
+          }
+          setOrderStatus(initialStatusMessage);
         } else {
           setError(response.error || "Failed to load order details");
         }
@@ -113,7 +169,81 @@ const OrderConfirmed: React.FC = () => {
       setLoading(false);
       setError("No order ID provided");
     }
-  }, [orderId, user?.id]);
+  }, [orderId, user?.id, navigate]); // Added navigate to dependency array
+
+  // WebSocket setup for real-time order status updates
+  useEffect(() => {
+    if (order && orderId) {
+      // Get socket instance with token from auth context
+      const token = user?.token || localStorage.getItem('token');
+      const socket = getSocket(token);
+      socketRef.current = socket;
+
+      // Join room for this specific order
+      socket.emit('join-order-room', { orderId });
+
+      // Listen for order placed event
+      socket.on('order:placed', (data) => {
+        // Only update if the event is for this order
+        if (data.orderId === orderId) {
+          setOrderStatus("Order placed successfully");
+        }
+      });
+
+      // Listen for order status updates
+      socket.on('order:status_update', (data) => {
+        // Only update if the event is for this order
+        if (data.orderId === orderId) {
+          // Update the order status based on the received status
+          let statusMessage = '';
+          switch(data.status) {
+            case 'ORDER_PLACED':
+              statusMessage = '📦 Order Placed';
+              break;
+            case 'PAYMENT_CONFIRMED':
+              statusMessage = '✅ Payment Confirmed';
+              break;
+            case 'ORDER_CONFIRMED':
+              statusMessage = '✅ Order Confirmed';
+              break;
+            case 'OUT_FOR_DELIVERY':
+              statusMessage = '🚚 Out for Delivery';
+              break;
+            case 'DELIVERED':
+              statusMessage = '📦 Delivered';
+              break;
+            case 'CANCELLED':
+              statusMessage = '❌ Order Cancelled';
+              break;
+            default:
+              statusMessage = data.status;
+          }
+          setOrderStatus(statusMessage);
+        }
+      });
+
+      // Listen for connection errors
+      socket.on('connect_error', (error) => {
+        console.error('Socket connection error:', error);
+      });
+
+      socket.on('disconnect', () => {
+        console.log('Socket disconnected');
+      });
+
+      // Clean up function to remove listeners and disconnect
+      return () => {
+        if (socketRef.current) {
+          socketRef.current.off('order:placed');
+          socketRef.current.off('order:status_update');
+          socketRef.current.off('connect_error');
+          socketRef.current.off('disconnect');
+          // Optionally leave the order room
+          socketRef.current.emit('leave-order-room', { orderId });
+        }
+      };
+    }
+  }, [order, orderId, user]); // Include user in dependency array
 
   if (loading) {
     return (
@@ -359,41 +489,33 @@ const OrderConfirmed: React.FC = () => {
               </div>
             </div>
 
-            {/* Order Status */}
+            {/* Order Status - Updated to show real-time status */}
             <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-8">
               <div className="px-4 py-5 sm:px-6 bg-gray-50">
                 <h2 className="text-lg font-medium text-gray-900">Order Status</h2>
               </div>
               <div className="border-t border-gray-200 px-4 py-5 sm:p-6">
                 <div className="flex items-center">
-                  <div className={`flex-shrink-0 h-10 w-10 rounded-full ${order.payment.status === 'success' ? 'bg-green-100' : 'bg-green-100'} flex items-center justify-center`}>
+                  <div className="flex-shrink-0 h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
                     <svg
-                      className={`h-6 w-6 ${order.payment.status === 'success' ? 'text-green-600' : 'text-green-600'}`}
+                      className="h-6 w-6 text-green-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                       xmlns="http://www.w3.org/2000/svg"
                     >
-                      {order.payment.status === 'success' ? (
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      ) : (
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      )}
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                   </div>
                   <div className="ml-4">
                     <h3 className="text-sm font-medium text-gray-900">
-                      {order.payment.status === 'success' ? 'Payment Successful' : 'Order Confirmed'}
+                      {/* Display real-time order status */}
+                      {orderStatus || 'Order Placed Successfully'}
                     </h3>
                     <p className="text-sm text-gray-500">
                       {order.payment.method === 'COD' 

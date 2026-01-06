@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { motion } from "framer-motion";
 
 //Brand interface
 interface Brand {
@@ -14,8 +15,8 @@ const emojiDataUrl = (emoji: string) => {
   <svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'>
     <defs>
       <linearGradient id='g' x1='0' x2='1' y1='0' y2='1'>
-        <stop offset='0%' stop-color='#f8fafc'/>
-        <stop offset='100%' stop-color='#eef2f7'/>
+        <stop offset='0%' stop-color='#f0f9ff'/>
+        <stop offset='100%' stop-color='#e0f2fe'/>
       </linearGradient>
     </defs>
     <rect width='100%' height='100%' rx='100' ry='100' fill='url(#g)'/>
@@ -41,39 +42,139 @@ const brands: Brand[] = [
 const TopBrandsSection: React.FC = () => {
   const navigate = useNavigate();
   const { shop } = useParams<{ shop?: string }>();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  // Show 4 products at a time
+  const visibleItems = 4;
+  const maxIndex = Math.max(0, brands.length - visibleItems);
+
+  const nextSlide = () => {
+    setCurrentIndex(prev => Math.min(prev + 1, maxIndex));
+  };
+
+  const prevSlide = () => {
+    setCurrentIndex(prev => Math.max(prev - 1, 0));
+  };
+
+  // Touch handlers for mobile swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStart - touchEnd > 50) {
+      // Swipe left
+      nextSlide();
+    } else if (touchStart - touchEnd < -50) {
+      // Swipe right
+      prevSlide();
+    }
+  };
+
+  // Update carousel position
+  useEffect(() => {
+    if (carouselRef.current) {
+      const cardWidth = carouselRef.current.offsetWidth / visibleItems;
+      carouselRef.current.style.transform = `translateX(-${currentIndex * cardWidth}px)`;
+    }
+  }, [currentIndex, visibleItems]);
+
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setCurrentIndex(0); // Reset to first slide on resize
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
-    <section id="brands" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up">
+    <section id="brands" className="w-full max-w-7xl mx-auto px-6 py-10">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">
         Top Brands
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
-        {brands.map((brand) => (
-          <div
-            key={brand.id}
-            onClick={() => navigate(`${shop ? `/${shop}` : ""}/brand/${encodeURIComponent(brand.name)}`)}
-            role="button"
-            aria-label={brand.name}
-            className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1.5"
+      
+      <div className="relative">
+        {/* Carousel Container */}
+        <div 
+          className="overflow-hidden"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
+          <div 
+            ref={carouselRef}
+            className="flex transition-transform duration-300 ease-in-out"
+            style={{ transform: 'translateX(0)' }}
           >
-            <div className="w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center overflow-hidden rounded-full bg-secondary ring-1 ring-gray-100">
-              <img
-                src={brand.logo}
-                alt={brand.name}
-                loading="lazy"
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  const fallback = emojiDataUrl("🏷️");
-                  if (target.src !== fallback) target.src = fallback;
-                }}
-                className="w-24 h-24 sm:w-28 sm:h-28 object-contain bg-white rounded-full transition-transform duration-300 group-hover:scale-[1.06]"
-              />
-            </div>
-            <p className="mt-3 text-sm font-medium text-gray-800 text-center">
-              {brand.name}
-            </p>
+            {brands.map((brand) => (
+              <div 
+                key={brand.id} 
+                className="flex-shrink-0 px-2"
+                style={{ width: `${100 / visibleItems}%` }}
+              >
+                <motion.div
+                  whileHover={{ 
+                    y: -8,
+                    scale: 1.03,
+                    boxShadow: "0 20px 25px -5px rgba(34, 197, 94, 0.15), 0 10px 10px -5px rgba(34, 197, 94, 0.1)",
+                    transition: { duration: 0.3 }
+                  }}
+                  whileTap={{ scale: 0.98 }}
+                  className="h-full"
+                >
+                  <div
+                    onClick={() => navigate(`${shop ? `/${shop}` : ""}/brand/${encodeURIComponent(brand.name)}`)}
+                    role="button"
+                    aria-label={brand.name}
+                    className="group bg-white backdrop-blur border border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer shadow-lg transition-all duration-300 hover:border-gray-300 hover:shadow-gray-100 h-full"
+                  >
+                    <div className="w-30 h-30 flex items-center justify-center overflow-hidden rounded-xl bg-gradient-to-br from-green-50 to-emerald-50 ring-2 ring-green-200 transition-all duration-300 group-hover:ring-4 group-hover:ring-green-300">
+                      <img
+                        src={brand.logo}
+                        alt={brand.name}
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          const fallback = emojiDataUrl("🏷️");
+                          if (target.src !== fallback) target.src = fallback;
+                        }}
+                        className="w-20 h-20 object-contain bg-white rounded-lg transition-transform duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    <p className="mt-4 text-sm font-bold text-gray-800 text-center group-hover:text-green-700 transition-colors duration-300">
+                      {brand.name}
+                    </p>
+                  </div>
+                </motion.div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+        
+        {/* Navigation Arrows - Hidden on mobile */}
+        <button 
+          onClick={prevSlide}
+          disabled={currentIndex === 0}
+          className={`absolute left-0 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-green-500 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-colors duration-200 shadow-lg md:flex hidden ${currentIndex === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          &larr;
+        </button>
+        <button 
+          onClick={nextSlide}
+          disabled={currentIndex === maxIndex}
+          className={`absolute right-0 top-1/2 transform -translate-y-1/2 w-10 h-10 rounded-full bg-white border border-green-500 text-green-500 flex items-center justify-center hover:bg-green-500 hover:text-white transition-colors duration-200 shadow-lg md:flex hidden ${currentIndex === maxIndex ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          &rarr;
+        </button>
       </div>
     </section>
   );

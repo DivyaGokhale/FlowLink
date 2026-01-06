@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { FaFacebookF, FaTwitter, FaInstagram, FaLinkedinIn } from "react-icons/fa";
 
 const Footer: React.FC = () => {
@@ -35,8 +36,8 @@ const Footer: React.FC = () => {
         <div>
           <h3 className="text-white font-semibold mb-3">Company</h3>
           <ul className="space-y-2 text-sm">
-            <li><a href="#" className="hover:text-white/90 transition-colors">About Us</a></li>
-            <li><a href="#" className="hover:text-white/90 transition-colors">Contact</a></li>
+            <li><Link to="/about" className="hover:text-white/90 transition-colors">About Us</Link></li>
+            <li><Link to="/contact" className="hover:text-white/90 transition-colors">Contact</Link></li>
             <li><a href="#" className="hover:text-white/90 transition-colors">Careers</a></li>
             <li><a href="#" className="hover:text-white/90 transition-colors">Blog</a></li>
           </ul>
@@ -58,8 +59,8 @@ const Footer: React.FC = () => {
           <h3 className="text-white font-semibold mb-3">Legal</h3>
           <ul className="space-y-2 text-sm">
             <li><a href="#" className="hover:text-white/90 transition-colors">Terms of Service</a></li>
-            <li><a href="#" className="hover:text-white/90 transition-colors">Privacy Policy</a></li>
-            <li><a href="#" className="hover:text-white/90 transition-colors">Cookie Policy</a></li>
+            <li><Link to="/privacy-policy" className="hover:text-white/90 transition-colors">Privacy Policy</Link></li>
+            <li><Link to="/cookie-policy" className="hover:text-white/90 transition-colors">Cookie Policy</Link></li>
             <li><a href="#" className="hover:text-white/90 transition-colors">Refund Policy</a></li>
           </ul>
         </div>

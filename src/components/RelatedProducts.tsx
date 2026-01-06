@@ -1,4 +1,4 @@
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 // Define the shape of a single product object
 interface Product {
@@ -24,6 +24,7 @@ const RelatedProducts = ({
   currentCategory,
 }: RelatedProductsProps) => {
   const { shop } = useParams<{ shop?: string }>();
+  const navigate = useNavigate(); // Add navigate hook
 
   // ✅ Filter related products: same category, not the current one
   const related = products
@@ -41,12 +42,12 @@ const RelatedProducts = ({
       <h2 className="text-2xl font-semibold mb-6">You may also like</h2>
 
       {related.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
           {related.map((item) => (
-            <Link
-              to={`${shop ? `/${shop}` : ""}/product/${item._id}`}
+            <div
+              onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${item._id}`)}
               key={item._id}
-              className="block border border-gray-100 rounded-2xl shadow-card p-4 hover:shadow-md transition-transform hover:-translate-y-1.5 bg-white/90 backdrop-blur"
+              className="block border border-green-200 rounded-xl shadow-card p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-white backdrop-blur cursor-pointer hover:border-green-300"
             >
               {/* Offer badge if available */}
               {item.offers && item.offers.length > 0 && (
@@ -61,7 +62,7 @@ const RelatedProducts = ({
                   alt={item.name}
                   loading="lazy"
                   decoding="async"
-                  className="w-28 h-28 object-contain transition-transform duration-300 hover:scale-[1.05]"
+                  className="w-28 h-28 object-contain transition-transform duration-300 hover:scale-[1.03]"
                 />
               </div>
 
@@ -72,7 +73,7 @@ const RelatedProducts = ({
               <p className="text-green-600 font-semibold mt-1">
                 ₹{item.price}
               </p>
-            </Link>
+            </div>
           ))}
         </div>
       ) : (

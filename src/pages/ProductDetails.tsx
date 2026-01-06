@@ -8,6 +8,7 @@ import { useAuth } from "../components/AuthContext";
 import { useCart } from "../components/CartContext";
 import { apiService, Product } from "../lib/api";
 import { formatPrice, getErrorMessage, getShopSlugFromUrl, getApiBaseUrl } from "../lib/utils";
+import QuantitySelector from "../components/QuantitySelector"; // Import the new QuantitySelector component
 
 const ProductDetails: React.FC = () => {
   const { id, shop } = useParams<{ id: string; shop?: string }>();
@@ -188,29 +189,28 @@ const ProductDetails: React.FC = () => {
               <p className="text-gray-700 mb-6">{product.description}</p>
             )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={handleAddToCart}
-                disabled={cartLoading}
-                className="bg-[hsl(var(--primary))] text-white px-6 py-2 rounded-lg shadow-button hover:brightness-95 transition disabled:opacity-50 flex items-center gap-2"
-              >
-                {cartLoading ? (
-                  <>
-                    <Spinner size="sm" variant="secondary" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add to Cart"
-                )}
-              </button>
-              <button
-                onClick={() =>
-                  navigate(`${shop ? `/${shop}` : ""}/addToCart`)
-                }
-                className="bg-emerald-700 text-white px-6 py-2 rounded-lg hover:brightness-105 transition"
-              >
-                View Cart
-              </button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
+                <QuantitySelector 
+                  min={1}
+                  max={10}
+                  onQuantityChange={setQuantity}
+                />
+                <button
+                  onClick={handleAddToCart}
+                  disabled={cartLoading}
+                  className="bg-[hsl(var(--primary))] text-white px-6 py-2 rounded-lg shadow-button hover:brightness-95 transition disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                >
+                  {cartLoading ? (
+                    <>
+                      <Spinner size="sm" variant="secondary" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add to Cart"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 // API service utility for FlowLink e-commerce app
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
+const API_BASE_URL = (import.meta as any).env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 export interface ApiResponse<T = any> {
   success?: boolean;
@@ -55,6 +55,12 @@ export interface Order {
     status: string;
     transactionId: string;
   };
+  status?: string; // Add status field
+  feedback?: {
+    rating: number;
+    comment: string;
+    submittedAt: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -106,7 +112,20 @@ class ApiService {
     };
 
     try {
+      console.log(`Making API request to: ${url}`); // Debug log
       const response = await fetch(url, config);
+      
+      console.log(`Response status: ${response.status}, URL: ${url}`); // Debug log
+      
+      // Check if the response is JSON before parsing
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // If not JSON, read the response as text to get the actual error
+        const textResponse = await response.text();
+        console.error(`API Error [${endpoint}]: Non-JSON response:`, textResponse);
+        throw new Error(`Server returned non-JSON response: ${textResponse.substring(0, 200)}`);
+      }
+      
       const data = await response.json();
 
       // Log the raw response for debugging
@@ -138,6 +157,16 @@ class ApiService {
       return apiResponse;
     } catch (error) {
       console.error(`API Error [${endpoint}]:`, error);
+      // If it's a parsing error, provide more specific information
+      if (error instanceof SyntaxError && error.message.includes('JSON')) {
+        console.error(`SyntaxError likely caused by HTML response instead of JSON for endpoint: ${endpoint}`);
+        throw new Error(`Invalid response format from server. Endpoint: ${endpoint}`);
+      }
+      // If it's a network error, provide more context
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error(`Network error when calling ${endpoint}:`, error);
+        throw new Error(`Network error: Could not reach server. Please check if the server is running on ${this.baseURL}`);
+      }
       throw error;
     }
   }
@@ -159,6 +188,27 @@ class ApiService {
     return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
+    });
+  }
+
+  async checkLock(email: string): Promise<ApiResponse> {
+    return this.request('/auth/check-lock', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async requestPasswordReset(email: string): Promise<ApiResponse> {
+    return this.request('/auth/request-password-reset', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<ApiResponse> {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, newPassword }),
     });
   }
 
@@ -254,15 +304,16 @@ class ApiService {
     
     // Transform response if needed (in case server returns just the order object)
     const formattedResponse: ApiResponse<Order> = {
-      success: true,
-      data: 'data' in response ? response.data : response as Order,
-      message: 'message' in response ? response.message : 'Order created successfully'
+      success: response.success ?? true,
+      data: response.data || (response as any as Order),
+      message: response.message || 'Order created successfully',
+      error: response.error
     };
     
     console.log('Formatted order response:', formattedResponse);
     
     if (!formattedResponse.data) {
-      console.error('Missing order data in response');
+      console.error('Missing order data in response', response);
       throw new Error('No data received in order response');
     }
     
@@ -277,6 +328,30 @@ class ApiService {
       method: 'PATCH',
       headers,
       body: JSON.stringify(updateData),
+    });
+  }
+
+  // Add new method for updating order status
+  async updateOrderStatus(orderId: string, status: string, userId?: string): Promise<ApiResponse<Order>> {
+    const headers: Record<string, string> = {};
+    if (userId) headers['x-user-id'] = userId;
+    
+    return this.request(`/orders/${orderId}/status`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  // Add new method for submitting order feedback
+  async submitOrderFeedback(orderId: string, rating: number, comment: string, userId?: string): Promise<ApiResponse<Order>> {
+    const headers: Record<string, string> = {};
+    if (userId) headers['x-user-id'] = userId;
+    
+    return this.request(`/orders/${orderId}/feedback`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ rating, comment }),
     });
   }
 

@@ -17,6 +17,11 @@ import Signup from "./pages/Signup";
 import OrderHistory from "./pages/OrderHistory";
 import Profile from "./pages/Profile";
 import OrderConfirmed from "./pages/OrderConfirmed";
+import ResetPassword from "./pages/ResetPassword";
+import About from "./pages/About";
+import Contact from "./pages/Contact";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import CookiePolicy from "./pages/CookiePolicy";
 import Addresses from "./pages/account/Addresses";
 import LoginSecurity from "./pages/account/LoginSecurity";
 import ManagePayments from "./pages/account/ManagePayments";
@@ -69,6 +74,7 @@ const AppContent = () => {
                   {/* Auth Routes */}
                   <Route path="/login" element={<AnimatedRoute><Login /></AnimatedRoute>} />
                   <Route path="/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
+                  <Route path="/reset-password/:token" element={<AnimatedRoute><ResetPassword /></AnimatedRoute>} />
                   <Route path="/:shop/account" element={<AnimatedRoute><Login /></AnimatedRoute>} />
                   <Route path="/:shop/signup" element={<AnimatedRoute><Signup /></AnimatedRoute>} />
 
@@ -226,16 +232,20 @@ const AppContent = () => {
                       </AnimatedRoute>
                     }
                   />
-                  <Route
-                    path="/:shop/account/login-security"
-                    element={
-                      <AnimatedRoute>
-                        <ProtectedRoute>
-                          <LoginSecurity />
-                        </ProtectedRoute>
-                      </AnimatedRoute>
-                    }
-                  />
+                  <Route path="/:shop/account/login-security" element={
+                    <AnimatedRoute>
+                      <ProtectedRoute>
+                        <LoginSecurity />
+                      </ProtectedRoute>
+                    </AnimatedRoute>
+                  } />
+                  
+                  {/* Static Pages */}
+                  <Route path="/about" element={<AnimatedRoute><About /></AnimatedRoute>} />
+                  <Route path="/contact" element={<AnimatedRoute><Contact /></AnimatedRoute>} />
+                  <Route path="/privacy-policy" element={<AnimatedRoute><PrivacyPolicy /></AnimatedRoute>} />
+                  <Route path="/cookie-policy" element={<AnimatedRoute><CookiePolicy /></AnimatedRoute>} />
+                  
                   <Route path="/" element={<AnimatedRoute><Landingpage /></AnimatedRoute>} />
                   <Route path="/shop" element={<AnimatedRoute><Shop /></AnimatedRoute>} />
                   <Route

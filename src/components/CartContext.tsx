@@ -128,6 +128,21 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     
     try {
+      // Calculate total items in cart before adding new item
+      const currentTotalItems = cart.reduce((total, item) => total + (item.quantity || 0), 0);
+      const itemsToAdd = quantity || 1;
+      
+      // Check if adding this product would exceed the 20 item limit
+      if (currentTotalItems + itemsToAdd > 20) {
+        const availableSlots = 20 - currentTotalItems;
+        if (availableSlots > 0) {
+          showToast(`You can only add ${availableSlots} more item${availableSlots > 1 ? 's' : ''} to your cart (max 20 items)`);
+        } else {
+          showToast("Your cart is full (max 20 items). Please remove some items before adding more.");
+        }
+        return; // Don't add the item to cart
+      }
+
       // Ensure we have required fields
       if (!product || (!product.id && !product._id)) {
         throw new Error("Invalid product");
@@ -148,11 +163,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         );
 
         if (existingItemIndex >= 0) {
+          // Calculate new quantity
+          const currentQuantity = currentCart[existingItemIndex].quantity || 0;
+          const newQuantity = currentQuantity + (quantity || 1);
+          
+          // Check if adding would exceed the 20 item limit
+          if (currentTotalItems - currentQuantity + newQuantity > 20) {
+            const availableSlots = 20 - (currentTotalItems - currentQuantity);
+            showToast(`Adding ${quantity} more would exceed the cart limit. You can only add ${availableSlots} more item${availableSlots > 1 ? 's' : ''}.`);
+            return prev; // Don't update cart
+          }
+          
           // Update quantity if exists
           const updatedCart = [...currentCart];
           updatedCart[existingItemIndex] = {
             ...updatedCart[existingItemIndex],
-            quantity: (updatedCart[existingItemIndex].quantity || 0) + (quantity || 1)
+            quantity: newQuantity
           };
           return updatedCart;
         }
@@ -183,7 +209,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, cart]);
 
   const removeFromCart = useCallback((id: number | string) => {
     setCart((prev) => {
@@ -246,18 +272,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
   }, []);
 
-  // Listen for logout event and clear cart
-  useEffect(() => {
-    const handleLogout = () => {
-      clearCart();
-    };
-
-    window.addEventListener('userLoggedOut', handleLogout);
-    
-    return () => {
-      window.removeEventListener('userLoggedOut', handleLogout);
-    };
-  }, [clearCart]);
+  // Removed logout event listener to keep cart after logout
 
   const contextValue = {
     cart: safeCart,

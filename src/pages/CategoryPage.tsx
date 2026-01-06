@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Spinner from "../components/ui/Spinner";
 import { motion } from "framer-motion";
 import { useAuth } from "../components/AuthContext";
+import QuantitySelector from "../components/QuantitySelector"; // Import the new QuantitySelector component
 
 interface ProductDoc {
   _id: string;
@@ -46,6 +47,9 @@ const CategoryPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>("featured");
   const navigate = useNavigate();
   const { vipEligible } = useAuth();
+
+  // State to track which product's quantity selector is shown
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
 
   const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -161,6 +165,31 @@ const CategoryPage: React.FC = () => {
     return list;
   }, [products, search, inStockOnly, minPrice, maxPrice, sortBy]);
 
+  const addToCart = (p: ProductDoc) => {
+    // Calculate total items in cart before adding new item
+    const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+    const currentTotalItems = existing.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
+    
+    // Check if adding this product would exceed the 20 item limit
+    if (currentTotalItems + 1 > 20) {
+      showToast("Your cart is full (max 20 items). Please remove some items before adding more.");
+      return; // Don't add the item to cart
+    }
+    
+    const image = Array.isArray(p.images) && p.images.length ? p.images[0] : "";
+    const base = Number((p as any).discountedPrice ?? p.price ?? 0);
+    const vipPrice = vipEligible ? Math.max(0, base - VIP_OFF) : base;
+    const item = { _id: String(p._id), name: p.title || "Untitled", price: vipPrice, image, quantity: 1 } as any;
+    
+    const updated = existing.some((it: any) => it._id === item._id)
+      ? existing.map((it: any) => it._id === item._id 
+          ? { ...it, quantity: Math.min(20 - (currentTotalItems - (it.quantity || 1)), (it.quantity || 1) + 1) } // Cap quantity to not exceed 20
+          : it)
+      : [...existing, item];
+    localStorage.setItem("cart", JSON.stringify(updated));
+    try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+  };
+
   return (
     <>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -219,11 +248,106 @@ const CategoryPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mb-2">
+              <div className="mb-5">
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input type="checkbox" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} />
                   In stock only
                 </label>
+              </div>
+
+              {/* Categories List */}
+              <div className="mb-2">
+                <div className="font-medium text-sm text-gray-800 mb-2">Categories</div>
+                <div className="space-y-1">
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/shop` : "/shop")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      !category ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    All Products
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Dairy%2C%20Bread%20%26%20Eggs` : "/category/Dairy%2C%20Bread%20%26%20Eggs")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Dairy, Bread & Eggs" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Dairy, Bread & Eggs
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Cold%20Drinks%20%26%20Juices` : "/category/Cold%20Drinks%20%26%20Juices")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Cold Drinks & Juices" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Cold Drinks & Juices
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Rice%2C%20Atta%20%26%20Grains` : "/category/Rice%2C%20Atta%20%26%20Grains")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Rice, Atta & Grains" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Rice, Atta & Grains
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Sugar%2C%20Jaggery%20%26%20Salt` : "/category/Sugar%2C%20Jaggery%20%26%20Salt")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Sugar, Jaggery & Salt" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Sugar, Jaggery & Salt
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Masale%20%26%20Spices` : "/category/Masale%20%26%20Spices")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Masale & Spices" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Masale & Spices
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Biscuits%20%26%20Snacks` : "/category/Biscuits%20%26%20Snacks")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Biscuits & Snacks" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Biscuits & Snacks
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Tea%2C%20Coffee%20%26%20Beverages` : "/category/Tea%2C%20Coffee%20%26%20Beverages")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Tea, Coffee & Beverages" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Tea, Coffee & Beverages
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Oil%20%26%20Ghee` : "/category/Oil%20%26%20Ghee")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Oil & Ghee" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Oil & Ghee
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Personal%20Care` : "/category/Personal%20Care")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Personal Care" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Personal Care
+                  </button>
+                  <button
+                    onClick={() => navigate(shop ? `/${shop}/category/Household%20Cleaning` : "/category/Household%20Cleaning")}
+                    className={`block w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 ${
+                      category === "Household Cleaning" ? "font-medium text-[hsl(var(--primary))]" : "text-gray-700"
+                    }`}
+                  >
+                    Household Cleaning
+                  </button>
+                </div>
               </div>
             </aside>
 
@@ -232,7 +356,7 @@ const CategoryPage: React.FC = () => {
               {display.length === 0 ? (
                 <div className="text-gray-600">No products match your filters.</div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                   {display.map((p, i) => {
               const img = Array.isArray(p.images) && p.images.length ? p.images[0] : (p.image || "/favicon.ico");
               const base = Number((p as any).discountedPrice ?? p.price ?? 0);
@@ -243,41 +367,50 @@ const CategoryPage: React.FC = () => {
 
                     return (
                       <motion.div
-                  key={p._id}
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.35, delay: (i % 12) * 0.03 }}
-                  className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col"
-                >
-                  <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
-                    <img src={img} alt={p.title || p.name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
-                  </div>
-                  <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || p.name}</div>
-                  <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>
-                    {mrp && mrp > base && (
-                      <>
-                        <div className="text-xs line-through text-gray-400">{currency(mrp)}</div>
-                        <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
-                      </>
-                    )}
-                    {vipEligible && vipOff > 0 && (
-                      <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5">VIP -₹{VIP_OFF}</span>
-                    )}
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
-                    <button onClick={() => {
-                      const existing = JSON.parse(localStorage.getItem("cart") || "[]");
-                      const item = { _id: String(p._id), name: (p.title || p.name || "Untitled"), price: finalPrice, image: img, quantity: 1 };
-                      const updated = existing.some((it: any) => it._id === item._id)
-                        ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
-                        : [...existing, item];
-                      localStorage.setItem("cart", JSON.stringify(updated));
-                      try { window.dispatchEvent(new Event("cart-updated")); } catch {}
-                    }} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
-                  </div>
+                        id={`product-${p._id}`}
+                        key={p._id}
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, delay: (i % 12) * 0.03 }}
+                        className="group bg-white backdrop-blur rounded-xl shadow-card transition-all duration-300 hover:shadow-lg hover:-translate-y-1 p-3 flex flex-col border border-green-200 hover:border-green-300"
+                      >
+                        <div 
+                          onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)}
+                          className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center cursor-pointer"
+                        >
+                          <img src={img} alt={p.title || p.name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
+                        </div>
+                        <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || p.name}</div>
+                        <div className="mt-1 text-xs text-gray-500">{p.category || "Others"}</div>
+                        <div className="mt-2 flex items-baseline gap-2">
+                          <div className="text-lg font-semibold text-gray-900">{currency(finalPrice)}</div>
+                          {mrp && mrp > base && (
+                            <>
+                              <div className="text-xs line-through text-gray-400">{currency(mrp)}</div>
+                              <span className="text-[11px] bg-rose-100 text-rose-700 rounded px-1.5 py-0.5">{discount}% off</span>
+                            </>
+                          )}
+                          {vipEligible && vipOff > 0 && (
+                            <span className="ml-1 text-[11px] bg-emerald-100 text-emerald-700 rounded px-1.5 py-0.5">VIP -₹{VIP_OFF}</span>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-[hsl(var(--primary))] text-sm transition-all duration-200 hover:bg-[hsl(var(--primary))] hover:text-white whitespace-nowrap">View</button>
+                          <button 
+                            onClick={() => {
+                              const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+                              const item = { _id: String(p._id), name: (p.title || p.name || "Untitled"), price: finalPrice, image: img, quantity: 1 };
+                              const updated = existing.some((it: any) => it._id === item._id)
+                                ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
+                                : [...existing, item];
+                              localStorage.setItem("cart", JSON.stringify(updated));
+                              try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+                            }} 
+                            className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button transition-all duration-200 hover:bg-[hsl(var(--primary-hover))] hover:scale-105 active:scale-95 whitespace-nowrap overflow-hidden text-ellipsis px-2"
+                          >
+                            Add to Cart
+                          </button>
+                        </div>
                       </motion.div>
                     );
                   })}

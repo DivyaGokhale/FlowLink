@@ -169,12 +169,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const refreshEligibility = async (emailHint?: string) => {
+    // Early return if no email provided (e.g., during logout)
+    const email = (emailHint || user?.email || '').trim();
+    if (!email) {
+      setVipEligible(false);
+      return;
+    }
+    
     try {
       const shop = guessShop() || undefined;
       const params = new URLSearchParams();
       if (shop) params.set('shop', shop);
-      const email = (emailHint || user?.email || '').trim();
-      if (email) params.set('email', email);
+      params.set('email', email);
       const headers: Record<string,string> = {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
       const res = await fetch(`${API_BASE}/auth/eligibility?${params.toString()}`, { headers });
@@ -202,7 +208,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
   // Infer shop slug from URL or localStorage so the auth API can map to seller
-  const RESERVED_PATHS = new Set(["login","signup","product","addToCart","payment","shop","orders","order"])
+  const RESERVED_PATHS = new Set(["login","signup","product","addToCart","payment","shop","orders","order","profile","account"])
   const guessShop = () => {
     try {
       const saved = localStorage.getItem("shopSlug")
@@ -225,7 +231,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || "Login failed");
+        // Handle account lock (403) with specific message
+        const errorMessage = errorData.error || errorData.message || "Login failed";
+        if (res.status === 403 && errorMessage.includes('temporarily locked')) {
+          throw new Error(errorMessage);
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await res.json();
@@ -285,26 +296,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const socialLogin = async (providerName: "google" | "microsoft") => {
-    const auth = getAuth(app);
-    const provider =
-      providerName === "google"
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      // First, check if the account is locked
+      const auth = getAuth(app);
+      const provider = providerName === "google"
         ? new GoogleAuthProvider()
         : new OAuthProvider("microsoft.com");
-    const result = await signInWithPopup(auth, provider as any);
-    const fUser = result.user;
-    const idToken = await fUser.getIdToken();
-    const profile = {
-      id: fUser.uid,
-      name: fUser.displayName || "",
-      email: fUser.email || "",
-    };
-    setUser(profile);
-    setToken(idToken);
-    await refreshEligibility(profile.email);
+      
+      // Sign in with the provider
+      const result = await signInWithPopup(auth, provider as any);
+      const fUser = result.user;
+      
+      if (!fUser.email) {
+        throw new Error("No email found in the authentication provider");
+      }
+      
+      // Check if the account is locked before proceeding
+      const checkLockResponse = await fetch(`${API_BASE}/auth/check-lock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: fUser.email })
+      });
+      
+      if (!checkLockResponse.ok) {
+        const errorData = await checkLockResponse.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to check account status');
+      }
+      
+      const lockStatus = await checkLockResponse.json();
+      if (lockStatus.locked) {
+        // Sign out the user since the account is locked
+        await signOut(auth);
+        throw new Error('Account is temporarily locked. Please try again later.');
+      }
+      
+      // If not locked, proceed with getting the ID token
+      const idToken = await fUser.getIdToken();
+      const profile = {
+        id: fUser.uid,
+        name: fUser.displayName || "",
+        email: fUser.email || "",
+      };
+      
+      setUser(profile);
+      setToken(idToken);
+      await refreshEligibility(profile.email);
+    } catch (err: any) {
+      const errorMessage = err.message || `${providerName} sign-in failed`;
+      setError(errorMessage);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const loginWithGoogle = () => socialLogin("google");
   const loginWithMicrosoft = () => socialLogin("microsoft");
+  console.log(import.meta.env.VITE_FIREBASE_API_KEY);
 
   const logout = () => {
     const auth = getAuth(app);
@@ -312,7 +363,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setToken(null);
     setUser(null);
     localStorage.removeItem("auth");
-    localStorage.removeItem("cart"); // Clear cart from localStorage
+    // Keep cart in localStorage during logout
     
     // Dispatch a custom event to notify other components about logout
     window.dispatchEvent(new Event('userLoggedOut'));

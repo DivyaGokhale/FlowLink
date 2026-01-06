@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "../components/ToastContext";
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
 import { fadeIn, scaleVariants } from "../lib/animations";
+import QuantitySelector from "./QuantitySelector";
 
 interface Product {
   _id: string;
@@ -23,9 +24,13 @@ const ProductShowcase: React.FC = () => {
   const { showToast } = useToast(); // ✅ get toast function
   const { token, user, vipEligible } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
+  const navigate = useNavigate(); // Add navigate hook
   
   // VIP discount amount
   const VIP_OFF = 15;
+
+  // State to track which product's quantity selector is shown
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
@@ -65,12 +70,20 @@ const ProductShowcase: React.FC = () => {
       price: vipPrice
     };
 
+    // Calculate total items in cart before adding new item
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const currentTotalItems = existingCart.reduce((total: number, item: Product) => total + (item.quantity || 1), 0);
+    
+    // Check if adding this product would exceed the 20 item limit
+    if (currentTotalItems + 1 > 20) {
+      showToast("Your cart is full (max 20 items). Please remove some items before adding more.");
+      return; // Don't add the item to cart
+    }
 
     const updatedCart = existingCart.some((item: Product) => item._id === productToAdd._id)
       ? existingCart.map((item: Product) =>
           item._id === productToAdd._id
-            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            ? { ...item, quantity: Math.min(20 - (currentTotalItems - (item.quantity || 1)), (item.quantity || 1) + 1) } // Cap quantity to not exceed 20
             : item
         )
       : [...existingCart, { ...productToAdd, quantity: 1 }];
@@ -101,13 +114,13 @@ const ProductShowcase: React.FC = () => {
     <div className="w-full bg-white py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h2 className="text-2xl sm:text-3xl font-normal mb-8">Your Go-To Items</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {loading ? (
             <AnimatePresence>
               {Array.from({ length: 8 }).map((_, i) => (
                 <motion.div 
                   key={i}
-                  className="bg-white rounded-lg shadow-md overflow-hidden"
+                  className="bg-white rounded-xl shadow-card overflow-hidden border border-gray-200"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: i * 0.05 }}
@@ -131,95 +144,93 @@ const ProductShowcase: React.FC = () => {
                 
                 return (
                 <motion.div 
+                  id={`product-${product._id}`}
                   key={product._id}
-                  className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-all duration-300"
+                  className="bg-white rounded-xl shadow-card overflow-hidden hover:shadow-lg transition-all duration-300 border border-green-200 hover:border-green-300"
                   variants={getFadeInVariant(index)}
                   initial="hidden"
                   animate="visible"
                   custom={index}
-                  whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                  whileHover={{ y: -4, transition: { duration: 0.2 } }}
                   whileTap={{ scale: 0.98 }}
                   layout
                 >
-                  <Link to={`/product/${product._id}`} className="block">
-                    <motion.div 
-                      className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden relative group"
-                      whileHover={{ scale: 1.03 }}
-                      transition={{ duration: 0.3 }}
-                    >
-                      {product.image ? (
-                        <motion.img
-                          src={product.image}
-                          alt={product.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.5 }}
-                        />
-                      ) : (
-                        <div className="text-gray-400">No Image</div>
-                      )}
-                      <motion.div 
-                        className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"
+                  <div 
+                    onClick={() => navigate(`/product/${product._id}`)}
+                    className="h-48 bg-gray-100 flex items-center justify-center overflow-hidden relative group cursor-pointer"
+                  >
+                    {product.image ? (
+                      <motion.img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
                         initial={{ opacity: 0 }}
-                        whileHover={{ opacity: 1 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5 }}
                       />
-                      {/* VIP Badge */}
-                      {vipEligible && (
-                        <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                          VIP
-                        </div>
-                      )}
-                    </motion.div>
-                    <div className="p-4">
-                      <motion.h3 
-                        className="font-medium text-gray-900 mb-1 line-clamp-2 h-12"
-                        whileHover={{ color: '#2563eb' }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        {product.name}
-                      </motion.h3>
-                      <div className="flex items-center justify-between mt-2">
-                        <div>
-                          <motion.span 
-                            className="text-lg font-semibold text-gray-900"
-                            whileHover={{ scale: 1.05 }}
-                          >
-                            ₹{displayPrice.toFixed(2)}
-                          </motion.span>
-                          {product.mrp && product.mrp > displayPrice && (
-                            <motion.span 
-                              className="ml-2 text-sm text-gray-500 line-through"
-                              initial={{ opacity: 0.8 }}
-                              whileHover={{ opacity: 1 }}
-                            >
-                              ₹{product.mrp.toFixed(2)}
-                            </motion.span>
-                          )}
-                          {/* VIP Discount Badge */}
-                          {vipEligible && basePrice > displayPrice && (
-                            <motion.span 
-                              className="ml-2 text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-1.5 py-0.5 rounded"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                            >
-                              Save ₹{VIP_OFF}
-                            </motion.span>
-                          )}
-                        </div>
+                    ) : (
+                      <div className="text-gray-400">No Image</div>
+                    )}
+                    <motion.div 
+                      className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300"
+                      initial={{ opacity: 0 }}
+                      whileHover={{ opacity: 1 }}
+                    />
+                    {/* VIP Badge */}
+                    {vipEligible && (
+                      <div className="absolute top-2 right-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        VIP
                       </div>
-                      {product.pack && (
-                        <motion.div 
-                          className="mt-1 text-sm text-gray-500"
-                          initial={{ opacity: 0.8 }}
-                          whileHover={{ opacity: 1 }}
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <motion.h3 
+                      className="font-medium text-gray-900 mb-1 line-clamp-2 h-12"
+                      whileHover={{ color: '#2563eb' }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {product.name}
+                    </motion.h3>
+                    <div className="flex items-center justify-between mt-2">
+                      <div>
+                        <motion.span 
+                          className="text-lg font-semibold text-gray-900"
+                          whileHover={{ scale: 1.05 }}
                         >
-                          {product.pack}
-                        </motion.div>
-                      )}
+                          ₹{displayPrice.toFixed(2)}
+                        </motion.span>
+                        {product.mrp && product.mrp > displayPrice && (
+                          <motion.span 
+                            className="ml-2 text-sm text-gray-500 line-through"
+                            initial={{ opacity: 0.8 }}
+                            whileHover={{ opacity: 1 }}
+                          >
+                            ₹{product.mrp.toFixed(2)}
+                          </motion.span>
+                        )}
+                        {/* VIP Discount Badge */}
+                        {vipEligible && basePrice > displayPrice && (
+                          <motion.span 
+                            className="ml-2 text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-1.5 py-0.5 rounded"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          >
+                            Save ₹{VIP_OFF}
+                          </motion.span>
+                        )}
+                      </div>
                     </div>
-                  </Link>
+                    {product.pack && (
+                      <motion.div 
+                        className="mt-1 text-sm text-gray-500"
+                        initial={{ opacity: 0.8 }}
+                        whileHover={{ opacity: 1 }}
+                      >
+                        {product.pack}
+                      </motion.div>
+                    )}
+                  </div>
                   <div className="px-4 pb-4">
                     <motion.button
                       onClick={(e) => {
@@ -230,8 +241,8 @@ const ProductShowcase: React.FC = () => {
                         }
                         addToCart(product);
                       }}
-                      className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
-                      whileHover={{ scale: 1.02, boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
+                      className="w-full bg-[hsl(var(--primary))] text-white py-2 px-4 rounded-md transition-all duration-200 hover:bg-[hsl(var(--primary-hover))] hover:scale-105 active:scale-95"
+                      whileHover={{ boxShadow: '0 4px 12px rgba(37, 99, 235, 0.2)' }}
                       whileTap={{ scale: 0.98 }}
                       initial={false}
                     >

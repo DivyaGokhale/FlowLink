@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useToast } from "../components/ToastContext"; // ✅ import toast
 import { useAuth } from "./AuthContext";
 import Skeleton from "./ui/Skeleton";
+import QuantitySelector from "./QuantitySelector"; // Import the new QuantitySelector component
 
 interface Product {
   _id: string;
@@ -22,9 +23,13 @@ const FeaturedProducts: React.FC = () => {
   const { showToast } = useToast(); // ✅ get toast function
   const { user, vipEligible } = useAuth();
   const { shop } = useParams<{ shop?: string }>();
+  const navigate = useNavigate(); // Add navigate hook
   
   // VIP discount amount
   const VIP_OFF = 15;
+
+  // State to track which product's quantity selector is shown
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Load from local public/products.json
@@ -59,12 +64,20 @@ const FeaturedProducts: React.FC = () => {
       price: vipPrice
     };
 
+    // Calculate total items in cart before adding new item
     const existingCart = JSON.parse(localStorage.getItem("cart") || "[]");
+    const currentTotalItems = existingCart.reduce((total: number, item: Product) => total + (item.quantity || 1), 0);
+    
+    // Check if adding this product would exceed the 20 item limit
+    if (currentTotalItems + 1 > 20) {
+      showToast("Your cart is full (max 20 items). Please remove some items before adding more.");
+      return; // Don't add the item to cart
+    }
 
     const updatedCart = existingCart.some((item: Product) => item._id === productToAdd._id)
       ? existingCart.map((item: Product) =>
           item._id === productToAdd._id
-            ? { ...item, quantity: (item.quantity || 1) + 1 }
+            ? { ...item, quantity: Math.min(20 - (currentTotalItems - (item.quantity || 1)), (item.quantity || 1) + 1) } // Cap quantity to not exceed 20
             : item
         )
       : [...existingCart, { ...productToAdd, quantity: 1 }];
@@ -80,7 +93,7 @@ const FeaturedProducts: React.FC = () => {
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 lg:gap-5">
           {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-2xl shadow-card p-4">
+            <div key={i} className="bg-white border border-gray-200 rounded-xl shadow-card p-4">
               <Skeleton className="aspect-square w-full rounded-lg" />
               <Skeleton className="h-4 w-3/4 mt-3" />
               <Skeleton className="h-3 w-1/2 mt-2" />
@@ -95,8 +108,8 @@ const FeaturedProducts: React.FC = () => {
   return (
     <section id="deals" className="w-full max-w-7xl mx-auto px-6 py-10 animate-fade-in-up scroll-mt-24 md:scroll-mt-28">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Featured Products</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-5">
-        {products.map((product) => {
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+        {products.filter(product => product?._id).map((product, index) => {
           // Calculate VIP price for display
           const basePrice = Number(product.price || 0);
           const displayPrice = vipEligible ? Math.max(0, basePrice - VIP_OFF) : basePrice;
@@ -105,11 +118,15 @@ const FeaturedProducts: React.FC = () => {
           
           return (
             <div
+              id={`product-${product._id}`}
               key={product._id}
-              className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card p-4 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 focus-within:ring-2 focus-within:ring-[hsl(var(--primary))]/20 flex flex-col"
+              className="group bg-white backdrop-blur rounded-xl shadow-card p-3 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-green-200 hover:border-green-300 flex flex-col"
             >
               {/* Product Image */}
-              <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 overflow-hidden">
+              <div 
+                onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${product._id}`)}
+                className="w-full rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25 overflow-hidden cursor-pointer"
+              >
                 <div className="aspect-square w-full rounded-lg bg-gray-50 ring-1 ring-gray-100 flex items-center justify-center relative">
                   <img
                     src={product.image}
@@ -127,7 +144,7 @@ const FeaturedProducts: React.FC = () => {
                     </div>
                   )}
                 </div>
-              </Link>
+              </div>
 
               {/* Title */}
               <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[38px] text-left">{product.name}</div>
@@ -151,12 +168,12 @@ const FeaturedProducts: React.FC = () => {
               </div>
               {/* Actions */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="h-9 rounded-full border border-gray-300 text-center text-sm flex items-center justify-center hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25">
+                <Link to={`${shop ? `/${shop}` : ""}/product/${product._id}`} className="h-9 rounded-full border border-[hsl(var(--primary))] text-center text-sm flex items-center justify-center transition-all duration-200 hover:bg-[hsl(var(--primary))] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/25">
                   View
                 </Link>
                 <button
                   onClick={() => addToCart(product)}
-                  className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35"
+                  className="h-9 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button transition-all duration-200 hover:bg-[hsl(var(--primary-hover))] hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[hsl(var(--primary))]/35"
                 >
                   Add to Cart
                 </button>

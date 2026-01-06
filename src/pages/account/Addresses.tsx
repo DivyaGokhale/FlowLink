@@ -126,16 +126,19 @@ const Addresses: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-white to-green-50">
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center mb-6">
           <button 
             onClick={() => go('/profile')}
-            className="mr-4 p-2 rounded-full hover:bg-gray-100"
+            className="mr-4 p-2 rounded-full hover:bg-green-100 transition-colors"
           >
-            <FiChevronLeft className="w-5 h-5" />
+            <FiChevronLeft className="w-5 h-5 text-green-700" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">Manage Addresses</h1>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-green-800 mb-1">Your Addresses</h1>
+            <p className="text-sm text-green-600">Add, edit, or remove delivery addresses</p>
+          </div>
         </div>
 
         <div className="mb-6">
@@ -156,21 +159,21 @@ const Addresses: React.FC = () => {
               });
               setShowForm(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all shadow-md"
           >
             <FiPlus /> Add New Address
           </button>
         </div>
 
         {showForm && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">
+          <div className="bg-white border border-green-200 rounded-xl shadow-lg p-6 mb-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-lg font-semibold text-green-800">
                 {editingId ? 'Edit Address' : 'Add New Address'}
               </h2>
               <button
                 onClick={() => setShowForm(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-green-500 hover:text-green-700 text-xl leading-none"
               >
                 ✕
               </button>
@@ -179,85 +182,85 @@ const Addresses: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Full Name *</label>
                   <input
                     type="text"
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Mobile Number *</label>
                   <input
                     type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 *</label>
+                <label className="block text-sm font-medium text-green-700 mb-1">Address Line 1 *</label>
                 <input
                   type="text"
                   name="line1"
                   value={formData.line1}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                   placeholder="House No., Building, Street, Area"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 2 (Optional)</label>
+                <label className="block text-sm font-medium text-green-700 mb-1">Address Line 2 (Optional)</label>
                 <input
                   type="text"
                   name="line2"
                   value={formData.line2}
                   onChange={handleChange}
-                  className="w-full p-2 border rounded-md"
+                  className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                   placeholder="Landmark, Near..."
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">City *</label>
                   <input
                     type="text"
                     name="city"
                     value={formData.city}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">State *</label>
                   <input
                     type="text"
                     name="state"
                     value={formData.state}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Pincode *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Pincode *</label>
                   <input
                     type="text"
                     name="postalCode"
                     value={formData.postalCode}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   />
                 </div>
@@ -265,12 +268,12 @@ const Addresses: React.FC = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country *</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Country *</label>
                   <select
                     name="country"
                     value={formData.country}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                     required
                   >
                     <option value="India">India</option>
@@ -279,12 +282,12 @@ const Addresses: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Address Type</label>
+                  <label className="block text-sm font-medium text-green-700 mb-1">Address Type</label>
                   <select
                     name="type"
                     value={formData.type}
                     onChange={handleChange}
-                    className="w-full p-2 border rounded-md"
+                    className="w-full p-2 border border-green-200 rounded-lg focus:ring-2 focus:ring-green-500/30 focus:border-green-500 outline-none bg-green-50"
                   >
                     <option value="home">Home</option>
                     <option value="work">Work</option>
@@ -300,9 +303,9 @@ const Addresses: React.FC = () => {
                   name="isDefault"
                   checked={formData.isDefault}
                   onChange={handleChange}
-                  className="h-4 w-4 text-green-500 focus:ring-green-600 border-gray-300 rounded"
+                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-green-300 rounded"
                 />
-                <label htmlFor="isDefault" className="ml-2 block text-sm text-gray-700">
+                <label htmlFor="isDefault" className="ml-2 block text-sm text-green-700">
                   Set as default address
                 </label>
               </div>
@@ -311,13 +314,13 @@ const Addresses: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  className="px-4 py-2 border border-green-300 rounded-lg text-green-700 hover:bg-green-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
                 >
                   {editingId ? 'Update Address' : 'Save Address'}
                 </button>
@@ -328,40 +331,40 @@ const Addresses: React.FC = () => {
 
         <div className="space-y-4">
           {addresses.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <p className="text-gray-500 mb-4">You haven't added any addresses yet.</p>
+            <div className="bg-white border border-green-200 rounded-xl shadow-lg p-12">
+              <p className="text-green-600 text-left">You haven't added any addresses yet.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {addresses.map((address) => (
                 <div
                   key={address.id}
-                  className={`bg-white rounded-lg shadow-md p-6 relative ${
-                    address.isDefault ? 'border-2 border-green-500' : 'border border-gray-200'
+                  className={`bg-white border rounded-xl shadow-lg p-6 relative ${
+                    address.isDefault ? 'border-2 border-green-500' : 'border-green-200'
                   }`}
                 >
                   {address.isDefault && (
-                    <span className="absolute top-2 right-2 bg-blue-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">
+                    <span className="absolute top-3 right-3 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
                       Default
                     </span>
                   )}
                   
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium text-gray-900">
+                  <div className="flex justify-between items-start mb-3">
+                    <h3 className="font-semibold text-green-800">
                       {address.name}
-                      <span className="ml-2 text-sm text-gray-500 capitalize">({address.type})</span>
+                      <span className="ml-2 text-sm text-green-600 font-normal capitalize">({address.type})</span>
                     </h3>
-                    <div className="flex space-x-2">
+                    <div className="flex gap-2">
                       <button
                         onClick={() => handleEdit(address.id)}
-                        className="text-gray-500 hover:text-blue-600"
+                        className="text-green-600 hover:text-green-800 transition-colors"
                         title="Edit"
                       >
                         <FiEdit2 />
                       </button>
                       <button
                         onClick={() => handleDelete(address.id)}
-                        className="text-gray-500 hover:text-red-600"
+                        className="text-green-600 hover:text-red-600 transition-colors"
                         title="Delete"
                       >
                         <FiTrash2 />
@@ -369,20 +372,22 @@ const Addresses: React.FC = () => {
                     </div>
                   </div>
 
-                  <p className="text-sm text-gray-700">
-                    {address.line1}
-                    {address.line2 && <>, {address.line2}</>}
-                  </p>
-                  <p className="text-sm text-gray-700">
-                    {address.city}, {address.state} {address.postalCode}
-                  </p>
-                  <p className="text-sm text-gray-700">{address.country}</p>
-                  <p className="text-sm text-gray-700">Phone: {address.phone}</p>
+                  <div className="space-y-1 text-sm text-green-700">
+                    <p>
+                      {address.line1}
+                      {address.line2 && <>, {address.line2}</>}
+                    </p>
+                    <p>
+                      {address.city}, {address.state} {address.postalCode}
+                    </p>
+                    <p>{address.country}</p>
+                    <p>Phone: {address.phone}</p>
+                  </div>
 
                   {!address.isDefault && (
                     <button
                       onClick={() => handleSetDefault(address.id)}
-                      className="mt-3 text-sm text-green-600 hover:text-green-800"
+                      className="mt-4 text-sm bg-green-100 hover:bg-green-200 text-green-700 font-medium px-3 py-1 rounded-lg transition-colors"
                     >
                       Set as default
                     </button>

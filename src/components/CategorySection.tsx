@@ -27,7 +27,7 @@ const categories: Category[] = [
   {
     id: 1,
     name: "Dairy, Bread & Eggs",
-    image: "/categories/diary_bread_eggs.jfif",
+    image: "/categories/diary_bread_eggs.jpg",
   },
   {
     id: 2,

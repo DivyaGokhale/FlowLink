@@ -3,6 +3,7 @@ import Skeleton from "../components/ui/Skeleton";
 import { useToast } from "../components/ToastContext";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../components/AuthContext";
+import QuantitySelector from "../components/QuantitySelector"; // Import the new QuantitySelector component
 
 // Product shape coming from admin API
 interface ProductDoc {
@@ -49,6 +50,9 @@ const Shop: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
   const { vipEligible } = useAuth();
+
+  // State to track which product's quantity selector is shown
+  const [showQuantitySelector, setShowQuantitySelector] = useState<Record<string, boolean>>({});
 
   const baseUrl = (import.meta as any).env?.VITE_API_BASE_URL || "http://localhost:5001/api";
 
@@ -272,13 +276,25 @@ const Shop: React.FC = () => {
 
   const VIP_OFF = 15; // rupees off for VIP (logged-in customers)
   const addToCart = (p: ProductDoc) => {
+    // Calculate total items in cart before adding new item
+    const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+    const currentTotalItems = existing.reduce((total: number, item: any) => total + (item.quantity || 1), 0);
+    
+    // Check if adding this product would exceed the 20 item limit
+    if (currentTotalItems + 1 > 20) {
+      showToast("Your cart is full (max 20 items). Please remove some items before adding more.");
+      return; // Don't add the item to cart
+    }
+    
     const image = Array.isArray(p.images) && p.images.length ? p.images[0] : "";
     const base = Number((p as any).discountedPrice ?? p.price ?? 0);
     const vipPrice = vipEligible ? Math.max(0, base - VIP_OFF) : base;
     const item = { _id: String(p._id), name: p.title || "Untitled", price: vipPrice, image, quantity: 1 } as any;
-    const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+    
     const updated = existing.some((it: any) => it._id === item._id)
-      ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
+      ? existing.map((it: any) => it._id === item._id 
+          ? { ...it, quantity: Math.min(20 - (currentTotalItems - (it.quantity || 1)), (it.quantity || 1) + 1) } // Cap quantity to not exceed 20
+          : it)
       : [...existing, item];
     localStorage.setItem("cart", JSON.stringify(updated));
     try { window.dispatchEvent(new Event("cart-updated")); } catch {}
@@ -393,8 +409,11 @@ const Shop: React.FC = () => {
                       const discount = mrp && mrp > base ? Math.round(((mrp - base) / mrp) * 100) : 0;
                       const delay = (i % 12) * 40; // gentle stagger
                       return (
-                        <div key={p._id} className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col">
-                          <div className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center">
+                        <div id={`product-${p._id}`} key={p._id} className="group bg-white/90 backdrop-blur border border-gray-100 rounded-2xl shadow-card hover:shadow-lg transition-transform duration-300 hover:-translate-y-1.5 p-4 flex flex-col">
+                          <div 
+                            onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)}
+                            className="aspect-[3/4] w-full rounded-lg bg-gray-50 overflow-hidden flex items-center justify-center cursor-pointer"
+                          >
                             <img src={img} alt={p.title || (p as any).name || "Product"} className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-[1.03]" loading="lazy" decoding="async" />
                           </div>
                           <div className="mt-3 text-sm font-medium text-gray-800 line-clamp-2 min-h-[40px]">{p.title || (p as any).name}</div>
@@ -413,7 +432,15 @@ const Shop: React.FC = () => {
                           </div>
                           <div className="mt-3 grid grid-cols-2 gap-2">
                             <button onClick={() => navigate(`${shop ? `/${shop}` : ""}/product/${p._id}`)} className="h-9 rounded-full border border-gray-300 text-sm hover:bg-gray-50">View</button>
-                            <button onClick={() => addToCart(p)} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
+                            <button onClick={() => {
+                              const existing = JSON.parse(localStorage.getItem("cart") || "[]");
+                              const item = { _id: String(p._id), name: p.title || "Untitled", price: finalPrice, image: img, quantity: 1 };
+                              const updated = existing.some((it: any) => it._id === item._id)
+                                ? existing.map((it: any) => it._id === item._id ? { ...it, quantity: (it.quantity || 1) + 1 } : it)
+                                : [...existing, item];
+                              localStorage.setItem("cart", JSON.stringify(updated));
+                              try { window.dispatchEvent(new Event("cart-updated")); } catch {}
+                            }} className="h-9 w-24 rounded-full bg-[hsl(var(--primary))] text-white text-sm shadow-button hover:brightness-95">Add to Cart</button>
                           </div>
                         </div>
                       );
